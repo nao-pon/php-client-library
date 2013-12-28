@@ -1,6 +1,7 @@
 <?php
 
 include('../CloudApi/CloudApi.php');
+include('ExampleTools.php');
 
 
 function main()
@@ -20,7 +21,9 @@ function main()
 	$children = $ca->ListPath($cloudPath);
 
 	foreach($children as $child)
-		print($child->{"path"} . "\n");
+	{
+		printf("%5.5s %10.10s %-30.30s\n", $child->{"type"}, humanFileSize($child->{"size"}), basename($child->{"path"}));
+	}
 }
 
 main();
