@@ -2,6 +2,9 @@
 
 function humanFileSize($size)
 {
+	if(!$size)
+		return "";
+
 	if((!$unit && $size >= 1 << 30))
 		return number_format($size / (1 << 30), 2) . "GB";
 
