@@ -1,4 +1,5 @@
-example-php-client
+php-client-library
+==================
 
 A php library for communicating with the copy cloud api
 
