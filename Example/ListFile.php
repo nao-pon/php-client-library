@@ -11,7 +11,7 @@ $cloudPath = $_SERVER['argv'][5];
 	
 // Create a cloud api connection to copy
 $ca = new CloudApi("http://api.qa.copy.com", $consumerKey,
-	 $consumerSecret, $accessToken, $tokenSecret, false);
+	 $consumerSecret, $accessToken, $tokenSecret, true);
 
 print("Listing $cloudPath\n");
 
