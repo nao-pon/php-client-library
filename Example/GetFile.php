@@ -14,9 +14,32 @@ $localPath = $_SERVER['argv'][6];
 $ca = new CloudApi("http://api.qa.copy.com", $consumerKey,
 	 $consumerSecret, $accessToken, $tokenSecret, false);
 
-print("Listing $cloudPath\n");
-
 // Ensure the file exists
-$children = $ca->ListPath($cloudPath, true);
+$files = $ca->ListPath($cloudPath, array("include_parts" => true));
+
+if(!$files)
+	die("Object " . $cloudPath . " doesn't exist\n");
+
+// Found it, verify its a file
+foreach($files as $file)
+{
+	if($file->{"type"} != "file")
+		die("Object " . $file->{"path"} . " is not a file, can't download\n");
+
+	print("Downloading " . $file->{"path"} . " to $localPath\n");
+
+	// Ok its a file, grab its parts 
+	$fh = fopen($localPath, "a+b");
+	foreach($file->{"revisions"}[0]->{"parts"} as $part)
+	{
+		$data = $ca->GetPart($part->{"fingerprint"}, $part->{"size"});
+		fwrite($fh, $data);
+	}
+	fclose($fh);
+
+	print("Successfully downloaded " . $file->{"path"} . " to $localPath\n");
+
+	break;
+}
 
 ?>
