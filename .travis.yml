@@ -4,6 +4,8 @@ php:
 - 5.4
 - 5.5
 before_script:
+- sudo pecl install oauth
+- echo "extension = oauth.so" >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini
 - composer install
 env:
   global:
