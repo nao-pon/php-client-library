@@ -49,7 +49,7 @@ class API
         // curl setup
         $this->curl = curl_init();
         if (!$this->curl) {
-            throw new Exception("Failed to initialize curl");
+            throw new \Exception("Failed to initialize curl");
         }
     }
 
@@ -111,7 +111,7 @@ class API
 
         // Check for errors
         if ($result->{"error"} != null) {
-            throw new Exception("Error creating file '" . $result->{"error"}->{"message"} . "'");
+            throw new \Exception("Error creating file '" . $result->{"error"}->{"message"} . "'");
         }
     }
 
@@ -138,7 +138,7 @@ class API
 
         // Check for errors
         if ($result->{"error"} != null) {
-            throw new Exception("Error removing file '" . $result->{"error"}->{"message"} . "'");
+            throw new \Exception("Error removing file '" . $result->{"error"}->{"message"} . "'");
         }
     }
 
@@ -171,7 +171,7 @@ class API
 
             // Check for errors
             if ($result->{"error"} != null) {
-                throw new Exception("Error listing path '" . $result->{"error"}->{"message"} . "'");
+                throw new \Exception("Error listing path '" . $result->{"error"}->{"message"} . "'");
             }
 
             // add the children if we got some, otherwise add the root object itself to the return
@@ -198,7 +198,7 @@ class API
     {
         // They must match
         if (md5($data) . sha1($data) != $fingerprint) {
-            throw new Exception("Failed to validate part hash");
+            throw new \Exception("Failed to validate part hash");
         }
 
         if ($this->debug) {
@@ -246,13 +246,13 @@ class API
             $result);
 
         if (!$header) {
-            throw new Exception("Failed to parse binary part reply");
+            throw new \Exception("Failed to parse binary part reply");
         }
 
         // See if we got an erro
         if ($header["errorCode"]) {
             // Just the error string remains
-            throw new Exception("Cloud returned part error " . "'" . substr($result, 6 * 4) . "'");
+            throw new \Exception("Cloud returned part error " . "'" . substr($result, 6 * 4) . "'");
         }
 
         // No error, parse the data
@@ -272,7 +272,7 @@ class API
         // Check for part error
         if ($part["partErrorCode"]) {
             var_dump($part);
-            throw new Exception("Got part error " . $part["partErrorCode"] . "'" . substr($result, (6 * 4) + (8 * 4) + 73) . "'");
+            throw new \Exception("Got part error " . $part["partErrorCode"] . "'" . substr($result, (6 * 4) + (8 * 4) + 73) . "'");
         }
     }
 
@@ -324,13 +324,13 @@ class API
             $result);
 
         if (!$header) {
-            throw new Exception("Failed to parse binary part reply");
+            throw new \Exception("Failed to parse binary part reply");
         }
 
         // See if we got an erro
         if ($header["errorCode"]) {
             // Just the error string remains
-            throw new Exception("Cloud returned part error " . "'" . substr($result, 6 * 4) . "'");
+            throw new \Exception("Cloud returned part error " . "'" . substr($result, 6 * 4) . "'");
         }
 
         // No error, parse the data
@@ -349,7 +349,7 @@ class API
 
         // Check for part error
         if ($part["partErrorCode"]) {
-            throw new Exception("Got part error " . $part["partErrorCode"] . "'" . substr($result, (6 * 4) + (8 * 4) + 73) . "'");
+            throw new \Exception("Got part error " . $part["partErrorCode"] . "'" . substr($result, (6 * 4) + (8 * 4) + 73) . "'");
         }
 
         // Now the cloud will set the partSize field to zero if it doesn't have the part
@@ -408,13 +408,13 @@ class API
             $result);
 
         if (!$header) {
-            throw new Exception("Failed to parse binary part reply");
+            throw new \Exception("Failed to parse binary part reply");
         }
 
         // See if we got an erro
         if ($header["errorCode"]) {
             // Just the error string remains
-            throw new Exception("Cloud returned part error " . "'" . substr($result, 6 * 4) . "'");
+            throw new \Exception("Cloud returned part error " . "'" . substr($result, 6 * 4) . "'");
         }
 
         // No error, parse the data
@@ -433,12 +433,12 @@ class API
 
         // Check for part error
         if ($part["partErrorCode"]) {
-            throw new Exception("Got part error " . $part["partErrorCode"] . "'" . substr($result, (6 * 4) + (8 * 4) + 73) . "'");
+            throw new \Exception("Got part error " . $part["partErrorCode"] . "'" . substr($result, (6 * 4) + (8 * 4) + 73) . "'");
         }
 
         // No error, see if data is in there
         if ($part["payloadSize"] == 0) {
-            throw new Exception("No data sent for part ");
+            throw new \Exception("No data sent for part ");
         }
 
         // Get the data out of there
@@ -446,7 +446,7 @@ class API
 
         // Triple check the data matches the fingerprint
         if (md5($data) . sha1($data) != $fingerprint) {
-            throw new Exception("Failed to validate part hash");
+            throw new \Exception("Failed to validate part hash");
         }
 
         // Part hash matches, return it
@@ -473,7 +473,7 @@ class API
 
         // If curl grossly failed, throw
         if ($result == FALSE) {
-            throw new Exception("Curl failed to exec " . curl_error($this->curl));
+            throw new \Exception("Curl failed to exec " . curl_error($this->curl));
         }
 
         return $result;
