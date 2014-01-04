@@ -1,23 +1,22 @@
 <?php
 
-include('../CloudApi/CloudApi.php');
-include('ExampleTools.php');
+require(__DIR__ . '/../vendor/autoload.php');
+include 'ExampleTools.php';
 
 $consumerKey = $_SERVER['argv'][1];
 $consumerSecret = $_SERVER['argv'][2];
 $accessToken = $_SERVER['argv'][3];
 $tokenSecret = $_SERVER['argv'][4];
 $cloudPath = $_SERVER['argv'][5];
-	
+
 // Create a cloud api connection to copy
-$ca = new CloudApi("http://api.qa.copy.com", $consumerKey,
-	 $consumerSecret, $accessToken, $tokenSecret, true);
+$ca = new \Barracuda\Copy\API($consumerKey, $consumerSecret, $accessToken, $tokenSecret, true);
 
 print("Listing $cloudPath\n");
 
-$children = $ca->ListPath($cloudPath);
+$children = $ca->listPath($cloudPath);
 
-foreach($children as $child)
-	printf("%5.5s %10.10s %-30.30s\n", $child->{"type"}, humanFileSize($child->{"size"}), basename($child->{"path"}));
-
-?>
+foreach ($children as $child) {
+    printf("%5.5s %10.10s ", $child->{"type"}, humanFileSize($child->{"size"}));
+    echo basename($child->{"path"}) . PHP_EOL;
+}

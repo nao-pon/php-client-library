@@ -1,392 +1,540 @@
 <?php
 
-class CloudApi
+namespace Barracuda\Copy;
+
+/**
+ * Copy API class
+ *
+ * @package Copy
+ * @license https://raw.github.com/copy-app/php-client-library/master/LICENSE MIT
+ */
+class API
 {
-	function __construct($address, $consumerKey, $consumerSecret, $accessToken, $tokenSecret, $debug = false)
-	{
-		$this->consumerKey = $consumerKey;
-		$this->consumerSecret = $consumerSecret;
-		$this->accessToken = $accessToken;
-		$this->tokenSecret = $tokenSecret;
-		$this->address = $address;
-		$this->debug = $debug;
+    /**
+     * API URl
+     * @var string $api_url
+     */
+    protected $api_url = 'https://api.copy.com';
 
-		$this->oauth = new OAuth($this->consumerKey, $this->consumerSecret);
-		$this->oauth->setToken($this->accessToken, $this->tokenSecret);
+    /**
+     * Instance of OAuth
+     * @var OAuth $oauth
+     */
+    private $oauth;
 
-		$this->curl = curl_init();
-		if(!$this->curl)
-			throw new Exception("Failed to initialize curl");
-	}
+    /**
+     * Instance of curl
+     * @var resource $curl
+     */
+    private $curl;
 
-	public function SendData($data, $shareId = 0)
-	{
-		// First generate a part hash
-		$hash = md5($data) . sha1($data);
+    /**
+     * Constructor
+     *
+     * @param string $consumerKey    OAuth consumer key
+     * @param string $consumerSecret OAuth consumer secret
+     * @param string $accessToken    OAuth access token
+     * @param string $tokenSecret    OAuth token secret
+     * @param bool   $debug          true to output debugging information to stdout
+     */
+    public function __construct($consumerKey, $consumerSecret, $accessToken, $tokenSecret, $debug = false)
+    {
+        // debug flag
+        $this->debug = $debug;
 
-		// See if the cloud has this part, and send if needed
-		if(!$this->HasPart($hash, strlen($data), $shareId))
-			$this->SendPart($hash, strlen($data), $data, $shareId);
+        // oauth setup
+        $this->oauth = new \OAuth($consumerKey, $consumerSecret);
+        $this->oauth->setToken($accessToken, $tokenSecret);
 
-		// Return information about this part
-		return array("fingerprint" => $hash, "size" => strlen($data));
-	}
+        // curl setup
+        $this->curl = curl_init();
+        if (!$this->curl) {
+            throw new Exception("Failed to initialize curl");
+        }
+    }
 
-	public function CreateFile($path, $parts)
-	{
-		if($this->debug)
-			print("Creating file at path " . $path . "\n");
+    /**
+     * Send a peice of data
+     *
+     * @param  string $data    binary data
+     * @param  int    $shareId setting this to zero is best, unless share id is known
+     * @return array  contains fingerprint and size, to be used when creating a file
+     */
+    public function sendData($data, $shareId = 0)
+    {
+        // first generate a part hash
+        $hash = md5($data) . sha1($data);
 
-		$request = array();
-		$request["action"] = "create";
-		$request["object_type"] = "file";
-		$request["parts"] = array();
-		$request["path"] = $path;
-		
-		$offset = 0;
-		foreach($parts as $part)
-		{
-			$partRequest["fingerprint"] = $part["fingerprint"];
-			$partRequest["offset"] = $offset;
-			$partRequest["size"] = $part["size"];
+        // see if the cloud has this part, and send if needed
+        if(!$this->HasPart($hash, strlen($data), $shareId))
+            $this->SendPart($hash, strlen($data), $data, $shareId);
 
-			array_push($request["parts"], $partRequest);
+        // return information about this part
+        return array("fingerprint" => $hash, "size" => strlen($data));
+    }
 
-			$offset += $part["size"];
-		}
+    /**
+     * Create a file with a set of data parts
+     *
+     * @param string $path  full path containing leading slash and file name
+     * @param array  $parts contains arrays of parts returned by \Barracuda\Copy\API\sendData
+     */
+    public function createFile($path, $parts)
+    {
+        if ($this->debug) {
+            print("Creating file at path " . $path . "\n");
+        }
 
-		$request["size"] = $offset;
+        $request = array();
+        $request["action"] = "create";
+        $request["object_type"] = "file";
+        $request["parts"] = array();
+        $request["path"] = $path;
 
-		$result = $this->Post("update_objects", $this->EncodeRequest("update_objects", array("meta" => array($request))));
+        $offset = 0;
+        foreach ($parts as $part) {
+            $partRequest["fingerprint"] = $part["fingerprint"];
+            $partRequest["offset"] = $offset;
+            $partRequest["size"] = $part["size"];
 
-		// Decode the json reply
-		$result = json_decode($result);
+            array_push($request["parts"], $partRequest);
 
-		// Check for errors
-		if($result->{"error"} != null)
-			throw new Exception("Error creating file '" . $result->{"error"}->{"message"} . "'");
-	}
+            $offset += $part["size"];
+        }
 
-	public function ListPath($path, $additionalOptions = null)
-	{
-		$request = array();
-		$request["path"] = $path;
-		$request["max_items"] = 10;
-		$request["list_watermark"] = false;
+        $request["size"] = $offset;
 
-		if($additionalOptions)
-			$request = array_merge($request, $additionalOptions);
-		
-		$result = $this->Post("list_objects", $this->EncodeRequest("list_objects", $request));
+        $result = $this->Post("update_objects", $this->EncodeRequest("update_objects", array("meta" => array($request))));
 
-		// Decode the json reply
-		$result = json_decode($result);
+        // Decode the json reply
+        $result = json_decode($result);
 
-		// Check for errors
-		if($result->{"error"} != null)
-			throw new Exception("Error listing path '" . $result->{"error"}->{"message"} . "'");
+        // Check for errors
+        if ($result->{"error"} != null) {
+            throw new Exception("Error creating file '" . $result->{"error"}->{"message"} . "'");
+        }
+    }
 
-		// Return children if we got some, otherwise return the root object itself
-		if($result->{"result"}->{"children"})
-			return $result->{"result"}->{"children"};
-		else
-			return array($result->{"result"}->{"object"});
-	}
+    /**
+     * Remove a file
+     *
+     * @param string $path full path containing leading slash and file name
+     */
+    public function removeFile($path)
+    {
+        if ($this->debug) {
+            print("Removing file at path " . $path . "\n");
+        }
 
-	public function SendPart($fingerprint, $size, $data, $shareId = 0)
-	{
-		// They must match
-		if(md5($data) . sha1($data) != $fingerprint)
-			throw new Exception("Failed to validate part hash");
+        $request = array();
+        $request["action"] = "remove";
+        $request["object_type"] = "file";
+        $request["path"] = $path;
 
-		if($this->debug)
-			print("Sending part $fingerprint \n");
+        $result = $this->Post("update_objects", $this->EncodeRequest("update_objects", array("meta" => array($request))));
 
-		// Pack in the part
-		$part = 
-			pack("N", 0xcab005e5) .			// uint32_t // "0xcab005e5"
-			pack("N", 8 * 4 + 73 + $size) .	// uint32_t // Size of this struct plus payload size
-			pack("N", 1) .					// uint32_t // Struct version
-			pack("N", $shareId) .			// uint32_t // Share id for part (for verification)
-			pack("a73", $fingerprint) .		// char[73] // Part fingerprint
-			pack("N", $size) .				// uint32_t // Size of the part
-			pack("N", $size) . 				// uint32_t // Size of our payload (partSize or 0, error msg size on error)
-			pack("N", 0) .					// uint32_t // Error code for individual parts
-			pack("N", 0);					// uint32_t // Reserved for future use
+        // Decode the json reply
+        $result = json_decode($result);
 
-		// Add the data at the end
-		$part .= $data;
+        // Check for errors
+        if ($result->{"error"} != null) {
+            throw new Exception("Error removing file '" . $result->{"error"}->{"message"} . "'");
+        }
+    }
 
-		// Pack in the header
-		$header = 
-			pack("N", 0xba5eba11) .		// uint32_t Fixed signature "0xba5eba11"
-			pack("N", 6 * 4) .          // uint32_t Size of this structure 
-			pack("N", 1) .              // uint32_t Struct version (1)
-			pack("N", strlen($part)) .  // uint32_t Total size of all data after the header
-			pack("N", 1) .              // uint32_t Part count
-			pack("N", 0);               // uint32_t Error code for errors regarding the entire request
+    /**
+     * List objects within a path
+     *
+     * @param  string $path              full path with leading slash and optionally a filename
+     * @param  array  $additionalOptions used for passing options such as include_parts
+     * @return array  contains items
+     */
+    public function listPath($path, $additionalOptions = null)
+    {
+        $list_watermark = false;
+        $return = array();
 
-		printf("Size of part request is " . strlen($part) . "\n");
+        do {
+            $request = array();
+            $request["path"] = $path;
+            $request["max_items"] = 100;
+            $request["list_watermark"] = $list_watermark;
 
-		$result = $this->Post("send_object_parts", $header . $part);
+            if ($additionalOptions) {
+                $request = array_merge($request, $additionalOptions);
+            }
 
-		$header = unpack(
-			// Parse our the header
-			"N1signature/" .			// uint32_t Fixed signature "0xba5eba11"
-			"N1size/" .                 // uint32_t Size of this structure 
-			"N1version/" .              // uint32_t Struct version (1)
-			"N1totalSize/" .            // uint32_t Total size of all data after the header
-			"N1partCount/" .            // uint32_t Part count
-			"N1errorCode/",             // uint32_t Error code for errors regarding the entire 
-			$result);
-		
-		if(!$header)
-			throw new Exception("Failed to parse binary part reply");
+            $result = $this->Post("list_objects", $this->EncodeRequest("list_objects", $request));
 
-		// See if we got an erro
-		if($header["errorCode"])
-		{
-			// Just the error string remains
-			throw new Exception("Cloud returned part error " . "'" . substr($result, 6 * 4) . "'");
-		}
+            // Decode the json reply
+            $result = json_decode($result);
 
-		// No error, parse the data
-		$part = unpack(
-			// Parse out the part
-			"N1partSignature/" .		// uint32_t // "0xcab005e5"
-			"N1partWithPayloadSize/" .  // uint32_t // Size of this struct plus payload size
-			"N1partVersion/" .          // uint32_t // Struct version
-			"N1partShareId/" .          // uint32_t // Share id for part (for verification)
-			"a73partFingerprint/" .     // char[73] // Part fingerprint
-			"N1partSize/" .             // uint32_t // Size of the part
-			"N1payloadSize/" .          // uint32_t // Size of our payload (partSize or 0, error msg size on error)
-			"N1partErrorCode/" .        // uint32_t // Error code for individual parts
-			"N1reserved/",  			// uint32_t // Reserved for future use
-			substr($result, 6 * 4));
+            // Check for errors
+            if ($result->{"error"} != null) {
+                throw new Exception("Error listing path '" . $result->{"error"}->{"message"} . "'");
+            }
 
-		// Check for part error
-		if($part["partErrorCode"])
-		{
-			var_dump($part);
-			throw new Exception("Got part error " . $part["partErrorCode"] . "'" . substr($result, (6 * 4) + (8 * 4) + 73) . "'");
-		}
+            // add the children if we got some, otherwise add the root object itself to the return
+            if ($result->{"result"}->{"children"}) {
+                $return = array_merge($return, $result->result->children);
+                $list_watermark = $result->result->list_watermark;
+            } else {
+                $return[] = $result->result->object;
+            }
+        } while (isset($result->result->more_items) && $result->result->more_items == 1);
 
-		// Success
-	}
+        return $return;
+    }
 
-	public function HasPart($fingerprint, $size, $shareId = 0)
-	{
-		if($this->debug)
-			print("Checking if cloud has part $fingerprint \n");
+    /**
+     * Send a data part
+     *
+     * @param string $fingerprint md5 and sha1 concatinated
+     * @param int    $size        number of bytes
+     * @param string $data        binary data
+     * @param int    $shareId     setting this to zero is best, unless share id is known
+     */
+    public function sendPart($fingerprint, $size, $data, $shareId = 0)
+    {
+        // They must match
+        if (md5($data) . sha1($data) != $fingerprint) {
+            throw new Exception("Failed to validate part hash");
+        }
 
-		// Pack in the part
-		$part = 
-			pack("N", 0xcab005e5) .		// uint32_t // "0xcab005e5"
-			pack("N", 8 * 4 + 73) .		// uint32_t // Size of this struct plus payload size
-			pack("N", 1) .				// uint32_t // Struct version
-			pack("N", $shareId) .		// uint32_t // Share id for part (for verification)
-			pack("a73", $fingerprint) . // char[73] // Part fingerprint
-			pack("N", $size) .      	// uint32_t // Size of the part
-			pack("N", 0) .  			// uint32_t // Size of our payload (partSize or 0, error msg size on error)
-			pack("N", 0) .				// uint32_t // Error code for individual parts
-			pack("N", 0);				// uint32_t // Reserved for future use
+        if ($this->debug) {
+            print("Sending part $fingerprint \n");
+        }
 
-		// Pack in the header
-		$header = 
-			pack("N", 0xba5eba11) .		// uint32_t Fixed signature "0xba5eba11"
-			pack("N", 6 * 4) .          // uint32_t Size of this structure 
-			pack("N", 1) .              // uint32_t Struct version (1)
-			pack("N", strlen($part)) .  // uint32_t Total size of all data after the header
-			pack("N", 1) .              // uint32_t Part count
-			pack("N", 0);               // uint32_t Error code for errors regarding the entire request
+        // Pack in the part
+        $part =
+            pack("N", 0xcab005e5) .			// uint32_t // "0xcab005e5"
+            pack("N", 8 * 4 + 73 + $size) .	// uint32_t // Size of this struct plus payload size
+            pack("N", 1) .					// uint32_t // Struct version
+            pack("N", $shareId) .			// uint32_t // Share id for part (for verification)
+            pack("a73", $fingerprint) .		// char[73] // Part fingerprint
+            pack("N", $size) .				// uint32_t // Size of the part
+            pack("N", $size) . 				// uint32_t // Size of our payload (partSize or 0, error msg size on error)
+            pack("N", 0) .					// uint32_t // Error code for individual parts
+            pack("N", 0);					// uint32_t // Reserved for future use
 
-		$result = $this->Post("has_object_parts", $header . $part);
+        // Add the data at the end
+        $part .= $data;
 
-		$header = unpack(
-			// Parse our the header
-			"N1signature/" .			// uint32_t Fixed signature "0xba5eba11"
-			"N1size/" .                 // uint32_t Size of this structure 
-			"N1version/" .              // uint32_t Struct version (1)
-			"N1totalSize/" .            // uint32_t Total size of all data after the header
-			"N1partCount/" .            // uint32_t Part count
-			"N1errorCode/",             // uint32_t Error code for errors regarding the entire 
-			$result);
-		
-		if(!$header)
-			throw new Exception("Failed to parse binary part reply");
+        // Pack in the header
+        $header =
+            pack("N", 0xba5eba11) .		// uint32_t Fixed signature "0xba5eba11"
+            pack("N", 6 * 4) .          // uint32_t Size of this structure
+            pack("N", 1) .              // uint32_t Struct version (1)
+            pack("N", strlen($part)) .  // uint32_t Total size of all data after the header
+            pack("N", 1) .              // uint32_t Part count
+            pack("N", 0);               // uint32_t Error code for errors regarding the entire request
 
-		// See if we got an erro
-		if($header["errorCode"])
-		{
-			// Just the error string remains
-			throw new Exception("Cloud returned part error " . "'" . substr($result, 6 * 4) . "'");
-		}
+        if ($this->debug) {
+            printf("Size of part request is " . strlen($part) . "\n");
+        }
 
-		// No error, parse the data
-		$part = unpack(
-			// Parse out the part
-			"N1partSignature/" .		// uint32_t // "0xcab005e5"
-			"N1partWithPayloadSize/" .  // uint32_t // Size of this struct plus payload size
-			"N1partVersion/" .          // uint32_t // Struct version
-			"N1partShareId/" .          // uint32_t // Share id for part (for verification)
-			"a73partFingerprint/" .     // char[73] // Part fingerprint
-			"N1partSize/" .             // uint32_t // Size of the part
-			"N1payloadSize/" .          // uint32_t // Size of our payload (partSize or 0, error msg size on error)
-			"N1partErrorCode/" .        // uint32_t // Error code for individual parts
-			"N1reserved/",  			// uint32_t // Reserved for future use
-			substr($result, 6 * 4));
+        $result = $this->Post("send_object_parts", $header . $part);
 
-		// Check for part error
-		if($part["partErrorCode"])
-			throw new Exception("Got part error " . $part["partErrorCode"] . "'" . substr($result, (6 * 4) + (8 * 4) + 73) . "'");
+        $header = unpack(
+            // Parse our the header
+            "N1signature/" .			// uint32_t Fixed signature "0xba5eba11"
+            "N1size/" .                 // uint32_t Size of this structure
+            "N1version/" .              // uint32_t Struct version (1)
+            "N1totalSize/" .            // uint32_t Total size of all data after the header
+            "N1partCount/" .            // uint32_t Part count
+            "N1errorCode/",             // uint32_t Error code for errors regarding the entire
+            $result);
 
-		// Now the cloud will set the partSize field to zero if it doesn't have the part
-		if($part["partSize"] == 0)
-			return false;
-		else 
-			return true;
-	}
+        if (!$header) {
+            throw new Exception("Failed to parse binary part reply");
+        }
 
-	public function GetPart($fingerprint, $size, $shareId = 0)
-	{
-		if($this->debug)
-			print("Getting part $fingerprint \n");
+        // See if we got an erro
+        if ($header["errorCode"]) {
+            // Just the error string remains
+            throw new Exception("Cloud returned part error " . "'" . substr($result, 6 * 4) . "'");
+        }
 
-		// Pack in the part
-		$part = 
-			pack("N", 0xcab005e5) .		// uint32_t // "0xcab005e5"
-			pack("N", 8 * 4 + 73) .		// uint32_t // Size of this struct plus payload size
-			pack("N", 1) .				// uint32_t // Struct version
-			pack("N", $shareId) .		// uint32_t // Share id for part (for verification)
-			pack("a73", $fingerprint) . // char[73] // Part fingerprint
-			pack("N", $size) .			// uint32_t // Size of the part
-			pack("N", 0) .				// uint32_t // Size of our payload (partSize or 0, error msg size on error)
-			pack("N", 0) .				// uint32_t // Error code for individual parts
-			pack("N", 0);				// uint32_t // Reserved for future use
+        // No error, parse the data
+        $part = unpack(
+            // Parse out the part
+            "N1partSignature/" .		// uint32_t // "0xcab005e5"
+            "N1partWithPayloadSize/" .  // uint32_t // Size of this struct plus payload size
+            "N1partVersion/" .          // uint32_t // Struct version
+            "N1partShareId/" .          // uint32_t // Share id for part (for verification)
+            "a73partFingerprint/" .     // char[73] // Part fingerprint
+            "N1partSize/" .             // uint32_t // Size of the part
+            "N1payloadSize/" .          // uint32_t // Size of our payload (partSize or 0, error msg size on error)
+            "N1partErrorCode/" .        // uint32_t // Error code for individual parts
+            "N1reserved/",  			// uint32_t // Reserved for future use
+            substr($result, 6 * 4));
 
-		// Pack in the header
-		$header = 
-			pack("N", 0xba5eba11) .		// uint32_t Fixed signature "0xba5eba11"
-			pack("N", 6 * 4) .          // uint32_t Size of this structure 
-			pack("N", 1) .              // uint32_t Struct version (1)
-			pack("N", strlen($part)) .  // uint32_t Total size of all data after the header
-			pack("N", 1) .              // uint32_t Part count
-			pack("N", 0);               // uint32_t Error code for errors regarding the entire request
+        // Check for part error
+        if ($part["partErrorCode"]) {
+            var_dump($part);
+            throw new Exception("Got part error " . $part["partErrorCode"] . "'" . substr($result, (6 * 4) + (8 * 4) + 73) . "'");
+        }
+    }
 
-		$result = $this->Post("get_object_parts", $header . $part);
+    /**
+     * Check to see if a part already exists
+     *
+     * @param  string $fingerprint md5 and sha1 concatinated
+     * @param  int    $size        number of bytes
+     * @param  int    $shareId     setting this to zero is best, unless share id is known
+     * @return bool   true if part already exists
+     */
+    public function hasPart($fingerprint, $size, $shareId = 0)
+    {
+        if ($this->debug) {
+            print("Checking if cloud has part $fingerprint \n");
+        }
 
-		$header = unpack(
-			// Parse our the header
-			"N1signature/" .			// uint32_t Fixed signature "0xba5eba11"
-			"N1size/" .                 // uint32_t Size of this structure 
-			"N1version/" .              // uint32_t Struct version (1)
-			"N1totalSize/" .            // uint32_t Total size of all data after the header
-			"N1partCount/" .            // uint32_t Part count
-			"N1errorCode/",             // uint32_t Error code for errors regarding the entire 
-			$result);
-		
-		if(!$header)
-			throw new Exception("Failed to parse binary part reply");
+        // Pack in the part
+        $part =
+            pack("N", 0xcab005e5) .		// uint32_t // "0xcab005e5"
+            pack("N", 8 * 4 + 73) .		// uint32_t // Size of this struct plus payload size
+            pack("N", 1) .				// uint32_t // Struct version
+            pack("N", $shareId) .		// uint32_t // Share id for part (for verification)
+            pack("a73", $fingerprint) . // char[73] // Part fingerprint
+            pack("N", $size) .      	// uint32_t // Size of the part
+            pack("N", 0) .  			// uint32_t // Size of our payload (partSize or 0, error msg size on error)
+            pack("N", 0) .				// uint32_t // Error code for individual parts
+            pack("N", 0);				// uint32_t // Reserved for future use
 
-		// See if we got an erro
-		if($header["errorCode"])
-		{
-			// Just the error string remains
-			throw new Exception("Cloud returned part error " . "'" . substr($result, 6 * 4) . "'");
-		}
+        // Pack in the header
+        $header =
+            pack("N", 0xba5eba11) .		// uint32_t Fixed signature "0xba5eba11"
+            pack("N", 6 * 4) .          // uint32_t Size of this structure
+            pack("N", 1) .              // uint32_t Struct version (1)
+            pack("N", strlen($part)) .  // uint32_t Total size of all data after the header
+            pack("N", 1) .              // uint32_t Part count
+            pack("N", 0);               // uint32_t Error code for errors regarding the entire request
 
-		// No error, parse the data
-		$part = unpack(
-			// Parse out the part
-			"N1partSignature/" .		// uint32_t // "0xcab005e5"
-			"N1partWithPayloadSize/" .  // uint32_t // Size of this struct plus payload size
-			"N1partVersion/" .          // uint32_t // Struct version
-			"N1partShareId/" .          // uint32_t // Share id for part (for verification)
-			"a73partFingerprint/" .     // char[73] // Part fingerprint
-			"N1partSize/" .             // uint32_t // Size of the part
-			"N1payloadSize/" .          // uint32_t // Size of our payload (partSize or 0, error msg size on error)
-			"N1partErrorCode/" .        // uint32_t // Error code for individual parts
-			"N1reserved/",  			// uint32_t // Reserved for future use
-			substr($result, 6 * 4));
+        $result = $this->Post("has_object_parts", $header . $part);
 
-		// Check for part error
-		if($part["partErrorCode"])
-			throw new Exception("Got part error " . $part["partErrorCode"] . "'" . substr($result, (6 * 4) + (8 * 4) + 73) . "'");
+        $header = unpack(
+            // Parse our the header
+            "N1signature/" .			// uint32_t Fixed signature "0xba5eba11"
+            "N1size/" .                 // uint32_t Size of this structure
+            "N1version/" .              // uint32_t Struct version (1)
+            "N1totalSize/" .            // uint32_t Total size of all data after the header
+            "N1partCount/" .            // uint32_t Part count
+            "N1errorCode/",             // uint32_t Error code for errors regarding the entire
+            $result);
 
-		// No error, see if data is in there
-		if($part["payloadSize"] == 0)
-			throw new Exception("No data sent for part ");
+        if (!$header) {
+            throw new Exception("Failed to parse binary part reply");
+        }
 
-		// Get the data out of there
-		$data = substr($result, (6 * 4) + (8 * 4) + 73, $part["payloadSize"]);
+        // See if we got an erro
+        if ($header["errorCode"]) {
+            // Just the error string remains
+            throw new Exception("Cloud returned part error " . "'" . substr($result, 6 * 4) . "'");
+        }
 
-		// Triple check the data matches the fingerprint
-		if(md5($data) . sha1($data) != $fingerprint)
-			throw new Exception("Failed to validate part hash");
+        // No error, parse the data
+        $part = unpack(
+            // Parse out the part
+            "N1partSignature/" .		// uint32_t // "0xcab005e5"
+            "N1partWithPayloadSize/" .  // uint32_t // Size of this struct plus payload size
+            "N1partVersion/" .          // uint32_t // Struct version
+            "N1partShareId/" .          // uint32_t // Share id for part (for verification)
+            "a73partFingerprint/" .     // char[73] // Part fingerprint
+            "N1partSize/" .             // uint32_t // Size of the part
+            "N1payloadSize/" .          // uint32_t // Size of our payload (partSize or 0, error msg size on error)
+            "N1partErrorCode/" .        // uint32_t // Error code for individual parts
+            "N1reserved/",  			// uint32_t // Reserved for future use
+            substr($result, 6 * 4));
 
-		// Part hash matches, return it
-		return $data;
-	}
+        // Check for part error
+        if ($part["partErrorCode"]) {
+            throw new Exception("Got part error " . $part["partErrorCode"] . "'" . substr($result, (6 * 4) + (8 * 4) + 73) . "'");
+        }
 
-	protected function Post($method, $data)
-	{
-		curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, "POST");
-		curl_setopt($this->curl, CURLOPT_POSTFIELDS, $data);
-		curl_setopt($this->curl, CURLOPT_HTTPHEADER, $this->GetHeaders($method));
-		curl_setopt($this->curl, CURLOPT_URL, $this->address . "/" . $this->GetEndpoint($method));
-		curl_setopt($this->curl, CURLOPT_RETURNTRANSFER, true); 
-		curl_setopt($this->curl, CURLOPT_POST, 1); 
+        // Now the cloud will set the partSize field to zero if it doesn't have the part
+        if ($part["partSize"] == 0) {
+            return false;
+        } else {
+            return true;
+        }
+    }
 
-		$result = curl_exec($this->curl);
+    /**
+     * Get a part
+     *
+     * @param  string $fingerprint md5 and sha1 concatinated
+     * @param  int    $size        number of bytes
+     * @param  int    $shareId     setting this to zero is best, unless share id is known
+     * @return string binary data
+     */
+    public function getPart($fingerprint, $size, $shareId = 0)
+    {
+        if ($this->debug) {
+            print("Getting part $fingerprint \n");
+        }
 
-		// If curl grossly failed, throw
-		if($result == FALSE)
-			throw new Exception("Curl failed to exec " . curl_error($this->curl));
-		return $result;
-	}
+        // Pack in the part
+        $part =
+            pack("N", 0xcab005e5) .		// uint32_t // "0xcab005e5"
+            pack("N", 8 * 4 + 73) .		// uint32_t // Size of this struct plus payload size
+            pack("N", 1) .				// uint32_t // Struct version
+            pack("N", $shareId) .		// uint32_t // Share id for part (for verification)
+            pack("a73", $fingerprint) . // char[73] // Part fingerprint
+            pack("N", $size) .			// uint32_t // Size of the part
+            pack("N", 0) .				// uint32_t // Size of our payload (partSize or 0, error msg size on error)
+            pack("N", 0) .				// uint32_t // Error code for individual parts
+            pack("N", 0);				// uint32_t // Reserved for future use
 
-	private function GetEndpoint($method)
-	{
-		if($method == "has_object_parts" || $method == "send_object_parts" || $method == "get_object_parts")
-			return $method;
-		else
-			return "jsonrpc";
-	}
+        // Pack in the header
+        $header =
+            pack("N", 0xba5eba11) .		// uint32_t Fixed signature "0xba5eba11"
+            pack("N", 6 * 4) .          // uint32_t Size of this structure
+            pack("N", 1) .              // uint32_t Struct version (1)
+            pack("N", strlen($part)) .  // uint32_t Total size of all data after the header
+            pack("N", 1) .              // uint32_t Part count
+            pack("N", 0);               // uint32_t Error code for errors regarding the entire request
 
-	private function GetHeaders($method)
-	{
-		$headers = array();
-		$endpoint = "jsonrpc";
+        $result = $this->Post("get_object_parts", $header . $part);
 
-		if($method == "has_object_parts" || $method == "send_object_parts" || $method == "get_object_parts")
-			array_push($headers, "Content-Type: application/octect-stream");
+        $header = unpack(
+            // Parse our the header
+            "N1signature/" .			// uint32_t Fixed signature "0xba5eba11"
+            "N1size/" .                 // uint32_t Size of this structure
+            "N1version/" .              // uint32_t Struct version (1)
+            "N1totalSize/" .            // uint32_t Total size of all data after the header
+            "N1partCount/" .            // uint32_t Part count
+            "N1errorCode/",             // uint32_t Error code for errors regarding the entire
+            $result);
 
-		array_push($headers, "X-Api-Version: 1.0");
-		array_push($headers, "X-Client-Type: api");
-		array_push($headers, "X-Client-Time: " . time());
-		array_push($headers, "Authorization: " .  $this->oauth->getRequestHeader('POST', $this->address . "/" . $this->GetEndpoint($method)));
+        if (!$header) {
+            throw new Exception("Failed to parse binary part reply");
+        }
 
-		return $headers;
-	}
+        // See if we got an erro
+        if ($header["errorCode"]) {
+            // Just the error string remains
+            throw new Exception("Cloud returned part error " . "'" . substr($result, 6 * 4) . "'");
+        }
 
-	private function EncodeRequest($method, $json)
-	{
-		$request["jsonrpc"] = "2.0";
-		$request["id"] = "0";
-		$request["method"] = $method;
-		$request["params"] = $json;
-		$request = json_encode($request, JSON_UNESCAPED_SLASHES);
-		if($this->debug)
-			print("Encoded request " . var_export($request) . "\n");
-		return $request;
-	}
+        // No error, parse the data
+        $part = unpack(
+            // Parse out the part
+            "N1partSignature/" .		// uint32_t // "0xcab005e5"
+            "N1partWithPayloadSize/" .  // uint32_t // Size of this struct plus payload size
+            "N1partVersion/" .          // uint32_t // Struct version
+            "N1partShareId/" .          // uint32_t // Share id for part (for verification)
+            "a73partFingerprint/" .     // char[73] // Part fingerprint
+            "N1partSize/" .             // uint32_t // Size of the part
+            "N1payloadSize/" .          // uint32_t // Size of our payload (partSize or 0, error msg size on error)
+            "N1partErrorCode/" .        // uint32_t // Error code for individual parts
+            "N1reserved/",  			// uint32_t // Reserved for future use
+            substr($result, 6 * 4));
 
-	private $address;
-	private $consumerKey;
-	private $consumerSecret;
-	private $tokenSecret;
-	private $curl;
-	private $oauth;
+        // Check for part error
+        if ($part["partErrorCode"]) {
+            throw new Exception("Got part error " . $part["partErrorCode"] . "'" . substr($result, (6 * 4) + (8 * 4) + 73) . "'");
+        }
+
+        // No error, see if data is in there
+        if ($part["payloadSize"] == 0) {
+            throw new Exception("No data sent for part ");
+        }
+
+        // Get the data out of there
+        $data = substr($result, (6 * 4) + (8 * 4) + 73, $part["payloadSize"]);
+
+        // Triple check the data matches the fingerprint
+        if (md5($data) . sha1($data) != $fingerprint) {
+            throw new Exception("Failed to validate part hash");
+        }
+
+        // Part hash matches, return it
+        return $data;
+    }
+
+    /**
+     * Post data
+     *
+     * @param  string $method API method
+     * @param  string $data   raw request
+     * @return mixed  result from curl_exec
+     */
+    protected function post($method, $data)
+    {
+        curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, "POST");
+        curl_setopt($this->curl, CURLOPT_POSTFIELDS, $data);
+        curl_setopt($this->curl, CURLOPT_HTTPHEADER, $this->GetHeaders($method));
+        curl_setopt($this->curl, CURLOPT_URL, $this->api_url . "/" . $this->GetEndpoint($method));
+        curl_setopt($this->curl, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($this->curl, CURLOPT_POST, 1);
+
+        $result = curl_exec($this->curl);
+
+        // If curl grossly failed, throw
+        if ($result == FALSE) {
+            throw new Exception("Curl failed to exec " . curl_error($this->curl));
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get endpoint
+     *
+     * @param  string $method API method
+     * @return string uri of endpoint without leading slash
+     */
+    private function getEndpoint($method)
+    {
+        if ($method == "has_object_parts" || $method == "send_object_parts" || $method == "get_object_parts") {
+            return $method;
+        } else {
+            return "jsonrpc";
+        }
+    }
+
+    /**
+     * Get headers
+     *
+     * @param  string $method API method
+     * @return array  contains headers to use for HTTP requests
+     */
+    private function getHeaders($method)
+    {
+        $headers = array();
+        $endpoint = "jsonrpc";
+
+        if ($method == "has_object_parts" || $method == "send_object_parts" || $method == "get_object_parts") {
+            array_push($headers, "Content-Type: application/octect-stream");
+        }
+
+        array_push($headers, "X-Api-Version: 1.0");
+        array_push($headers, "X-Client-Type: api");
+        array_push($headers, "X-Client-Time: " . time());
+        array_push($headers, "Authorization: " .  $this->oauth->getRequestHeader('POST', $this->api_url . "/" . $this->GetEndpoint($method)));
+
+        return $headers;
+    }
+
+    /**
+     * Encode request
+     *
+     * @param  string $method API method
+     * @param  array  $json   contains data to be encoded
+     * @return string json formatted request
+     */
+    private function encodeRequest($method, $json)
+    {
+        $request["jsonrpc"] = "2.0";
+        $request["id"] = "0";
+        $request["method"] = $method;
+        $request["params"] = $json;
+        $request = json_encode($request, JSON_UNESCAPED_SLASHES);
+        if ($this->debug) {
+            print("Encoded request " . var_export($request) . "\n");
+        }
+
+        return $request;
+    }
 }
-
-?>
