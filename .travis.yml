@@ -3,10 +3,6 @@ php:
 - 5.3
 - 5.4
 - 5.5
-before_install:
-- sudo apt-get update
-- sudo apt-get upgrade
-- sudo update-ca-certificates
 before_script:
 - pecl install oauth
 - composer self-update

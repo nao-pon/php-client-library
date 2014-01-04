@@ -51,6 +51,12 @@ class API
         if (!$this->curl) {
             throw new \Exception("Failed to initialize curl");
         }
+
+        // ca bundle
+        if (!is_file(__DIR__ . '/ca.crt')) {
+            throw new \Exception("Failed to load ca certificate");
+        }
+        curl_setopt($this->curl, CURLOPT_CAINFO, __DIR__ . '/ca.crt');
     }
 
     /**
