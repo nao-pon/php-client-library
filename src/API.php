@@ -536,7 +536,7 @@ class API
         $request["id"] = "0";
         $request["method"] = $method;
         $request["params"] = $json;
-        $request = json_encode($request, JSON_UNESCAPED_SLASHES);
+        $request = str_replace('\\/', '/', json_encode($request));
         if ($this->debug) {
             print("Encoded request " . var_export($request) . "\n");
         }
