@@ -1,5 +1,5 @@
 {
-    "name": "copy-app/php-api",
+    "name": "barracuda/copy",
     "type": "library",
     "description": "Copy PHP library",
     "keywords": ["copy"],
