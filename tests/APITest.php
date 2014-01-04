@@ -16,7 +16,7 @@ class APITest extends PHPUnit_Framework_TestCase
         $this->api = new \Barracuda\Copy\API($_SERVER['CONSUMER_KEY'], $_SERVER['CONSUMER_SECRET'], $_SERVER['ACCESS_TOKEN'], $_SERVER['ACCESS_TOKEN_SECRET'], false);
 
         // generate dummy data file
-        $this->data_filepath = tempnam(sys_get_temp_dir(), 'copy-unit-test');
+        $this->data_filepath = tempnam(sys_get_temp_dir(), 'copy-unit-test.tmp');
 
         // pump data into dummy file
         $fh = fopen($this->data_filepath, 'a+b');
@@ -41,7 +41,7 @@ class APITest extends PHPUnit_Framework_TestCase
         }
         fclose($fh);
 
-        $this->api->createFile('/Copy-PHP-API.test', $parts);
+        $this->api->createFile('/' . basename($this->data_filepath), $parts);
     }
 
     /**
@@ -60,7 +60,7 @@ class APITest extends PHPUnit_Framework_TestCase
     public function testGetPart()
     {
         // Ensure the file exists
-        $files = $this->api->listPath('/Copy-PHP-API.test', array("include_parts" => true));
+        $files = $this->api->listPath('/' . basename($this->data_filepath), array("include_parts" => true));
         $this->assertTrue(is_array($files), 'listPath should return an array');
 
         // Found it, verify its a file
@@ -94,6 +94,7 @@ class APITest extends PHPUnit_Framework_TestCase
      */
     public function testRemoveFile()
     {
-        $this->api->removeFile('/Copy-PHP-API.test');
+        $this->api->removeFile('/' . basename($this->data_filepath));
+        unlink($this->data_filepath);
     }
 }
