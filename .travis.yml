@@ -1,15 +1,25 @@
 language: php
+
 php:
+- 5.3.3
 - 5.3
 - 5.4
 - 5.5
+- hhvm
+
+matrix:
+  allow_failures:
+    - php: hhvm
+
 before_script:
 - pecl install oauth
 - composer self-update
 - composer install
+
 script:
 - phpunit
 - php bin/coverage-checker.php clover.xml 75
+
 env:
   global:
   - secure: IDMFsLriVB5GbFuUlVvhv7asxraadf4L++KnkxSDFlMSOqyKAeqsUYkY5Qsb1wc9rBK4CVThgY8OU3t+jFGrJwTUeIPdz+udnXd/9L69NW9QcS01F0RTh+/fW5ttBQH1obt45Ap5qvC4UzfWuRrNJgSLjLoIh8+bEYWDNYCaQ2A=
