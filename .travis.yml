@@ -5,7 +5,7 @@ php:
 - 5.5
 before_script:
 - pecl install oauth
-- echo "extension = oauth.so" >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini
+- composer self-update
 - composer install
 script:
 - phpunit
