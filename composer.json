@@ -1,5 +1,5 @@
 {
-    "name": "copy-app/php-client-library",
+    "name": "copy-app/php-api",
     "type": "library",
     "description": "Copy PHP library",
     "keywords": ["copy"],
