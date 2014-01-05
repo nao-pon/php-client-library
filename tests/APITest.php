@@ -4,6 +4,27 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 class APITest extends PHPUnit_Framework_TestCase
 {
+    protected static $data_filepath;
+
+    public static function setUpBeforeClass()
+    {
+        // generate dummy data file
+        self::$data_filepath = tempnam(sys_get_temp_dir(), 'copy-unit-test.tmp');
+
+        // pump data into dummy file
+        $fh = fopen(self::$data_filepath, 'a+b');
+        for ($i = 0; $i < 100; $i++) {
+            fwrite($fh, rand(0, getrandmax()));
+        }
+        fwrite($fh, str_repeat('Copy.com ', 1024));
+        fclose($fh);
+    }
+
+    public static function tearDownAfterClass()
+    {
+        unlink(self::$data_filepath);
+    }
+
     protected function setUp()
     {
         // obtain the oauth credentials
@@ -14,23 +35,12 @@ class APITest extends PHPUnit_Framework_TestCase
 
         // create a cloud api connection to copy
         $this->api = new \Barracuda\Copy\API($_SERVER['CONSUMER_KEY'], $_SERVER['CONSUMER_SECRET'], $_SERVER['ACCESS_TOKEN'], $_SERVER['ACCESS_TOKEN_SECRET'], false);
-
-        // generate dummy data file
-        $this->data_filepath = tempnam(sys_get_temp_dir(), 'copy-unit-test.tmp');
-
-        // pump data into dummy file
-        $fh = fopen($this->data_filepath, 'a+b');
-        for ($i = 0; $i < 100; $i++) {
-            fwrite($fh, rand(0, getrandmax()));
-        }
-        fwrite($fh, str_repeat('Copy.com ', 1024));
-        fclose($fh);
     }
 
     public function testCreateFile()
     {
         // Ensure the local file exists
-        $fh = fopen($this->data_filepath, "rb");
+        $fh = fopen(self::$data_filepath, "rb");
         $this->assertTrue(is_resource($fh), 'fh should be a resource');
 
         $parts = array();
@@ -41,7 +51,7 @@ class APITest extends PHPUnit_Framework_TestCase
         }
         fclose($fh);
 
-        $this->api->createFile('/' . basename($this->data_filepath), $parts);
+        $this->api->createFile('/' . basename(self::$data_filepath), $parts);
     }
 
     /**
@@ -60,7 +70,7 @@ class APITest extends PHPUnit_Framework_TestCase
     public function testGetPart()
     {
         // Ensure the file exists
-        $files = $this->api->listPath('/' . basename($this->data_filepath), array("include_parts" => true));
+        $files = $this->api->listPath('/' . basename(self::$data_filepath), array("include_parts" => true));
         $this->assertTrue(is_array($files), 'listPath should return an array');
 
         // Found it, verify its a file
@@ -94,7 +104,6 @@ class APITest extends PHPUnit_Framework_TestCase
      */
     public function testRemoveFile()
     {
-        $this->api->removeFile('/' . basename($this->data_filepath));
-        unlink($this->data_filepath);
+        $this->api->removeFile('/' . basename(self::$data_filepath));
     }
 }
