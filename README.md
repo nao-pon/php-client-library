@@ -11,12 +11,59 @@ This demo works with the OAUTH api, which you will need to setup at the copy dev
 
 ### The Basics
 
+## Connect to the cloud
+
 ```php
 // create a cloud api connection to copy
 $copy = new \Barracuda\Copy\API($consumerKey, $consumerSecret, $accessToken, $tokenSecret);
+```
 
+## List items
+
+```php
 // list items in the root
 $items = $copy->listPath('/');
+```
+
+## Uploading a file
+
+```php
+// open a file to upload
+$fh = fopen('/tmp/file', 'rb');
+
+// upload the file in 1MB chunks
+$parts = array();
+while ($data = fread($fh, 1024 * 1024)) {
+    $part = $copy->sendData($data);
+    array_push($parts, $part);
+}
+
+// close the file
+fclose($fh);
+
+// finalize the file
+$copy->createFile('/copy-file-path', $parts);
+```
+
+## Downloading a file
+```php
+// obtain a list of file and parts
+$files = $copy->listPath('/copy-file-path', array("include_parts" => true));
+
+// process each file
+foreach ($files as $file) {
+	$data = '';
+
+	// enumerate the parts in the latest revision
+    foreach ($file->revisions[0]->parts as $part) {
+        $data .= $copy->getPart($part->fingerprint, $part->size);
+    }
+}
+```
+
+## Delete a file
+```php
+$copy->removeFile('/copy-file-path);
 ```
 
 ### Installing via Composer
