@@ -5,16 +5,16 @@ Copy PHP API
 
 A php library for communicating with the copy cloud api
 
-This library demos the binary part api, an efficient way to de-dupe and send/receive data with the copy cloud, and the JSONRPC api used by the copy agent, and copy mobile devices, for doing advanced things with copy.
+This library demos the binary part api, an efficient way to de-dupe and send/receive data with the Copy cloud, and the JSONRPC api used by the Copy agent, and Copy mobile devices, for doing advanced things with Copy.
 
-This demo works with the OAUTH api, which you will need to setup at the copy developer portal (https://www.copy.com/developer/).
+This demo works with the OAUTH api, which you will need to setup at the Copy developer portal (https://www.copy.com/developer/).
 
 ### The Basics
 
 ## Connect to the cloud
 
 ```php
-// create a cloud api connection to copy
+// create a cloud api connection to Copy
 $copy = new \Barracuda\Copy\API($consumerKey, $consumerSecret, $accessToken, $tokenSecret);
 ```
 
@@ -82,6 +82,22 @@ After installing, you need to require Composer's autoloader:
 
 ```php
 require 'vendor/autoload.php';
+```
+### Running the tests
+
+First install the dependencies for the library using Composer. See above for how to install Composer.
+
+```bash
+composer install
+```
+
+Then add connection info for your Copy account as environment variables:
+
+```bash
+export CONSUMER_KEY=<check the developer portal>
+export CONSUMER_SECRET=<check the developer portal>
+export ACCESS_TOKEN=<OAuth token>
+export ACCESS_TOKEN_SECRET=<OAuth secret>
 ```
 
 ### License
