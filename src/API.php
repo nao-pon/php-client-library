@@ -1,7 +1,7 @@
 <?php
 
 namespace Barracuda\Copy;
-
+include ("OAuthSimple.php");
 /**
  * Copy API class
  *
@@ -23,17 +23,18 @@ class API
      */
     protected $api_url = 'https://api.copy.com';
 
-    /**
-     * Instance of OAuth
-     * @var OAuth $oauth
-     */
-    private $oauth;
 
     /**
      * Instance of curl
      * @var resource $curl
      */
     private $curl;
+
+    /**
+     * @var array
+     * User data
+     */
+    private $signature;
 
     /**
      * Constructor
@@ -50,8 +51,12 @@ class API
         $this->debug = $debug;
 
         // oauth setup
-        $this->oauth = new \OAuth($consumerKey, $consumerSecret);
-        $this->oauth->setToken($accessToken, $tokenSecret);
+        $this->signature = array(
+            'consumer_key' => $consumerKey,
+            'shared_secret' => $consumerSecret,
+            'oauth_token'=>$accessToken,
+            'oauth_secret'=>$tokenSecret
+        );
 
         // curl setup
         $this->curl = curl_init();
@@ -556,6 +561,12 @@ class API
         $headers = array();
         $endpoint = "jsonrpc";
 
+        $oauth=  new \OAuthSimple();
+        $oauth->setAction("POST");
+        $oAuthSignature = $oauth->sign(array(
+            'path'      =>  $this->api_url . "/" . $this->GetEndpoint($method),
+            'signatures'=> $this->signature));
+
         if ($method == "has_object_parts" || $method == "send_object_parts" || $method == "get_object_parts") {
             array_push($headers, "Content-Type: application/octect-stream");
         }
@@ -563,7 +574,7 @@ class API
         array_push($headers, "X-Api-Version: 1.0");
         array_push($headers, "X-Client-Type: api");
         array_push($headers, "X-Client-Time: " . time());
-        array_push($headers, "Authorization: " .  $this->oauth->getRequestHeader('POST', $this->api_url . "/" . $this->GetEndpoint($method)));
+        array_push($headers, "Authorization: " .  $oAuthSignature['header']);
 
         return $headers;
     }
