@@ -1,7 +1,7 @@
 <?php
 
 namespace Barracuda\Copy;
-include ("OAuthSimple.php");
+
 /**
  * Copy API class
  *
@@ -54,8 +54,8 @@ class API
         $this->signature = array(
             'consumer_key' => $consumerKey,
             'shared_secret' => $consumerSecret,
-            'oauth_token'=>$accessToken,
-            'oauth_secret'=>$tokenSecret
+            'oauth_token' => $accessToken,
+            'oauth_secret' => $tokenSecret
         );
 
         // curl setup
@@ -559,13 +559,18 @@ class API
     private function getHeaders($method)
     {
         $headers = array();
-        $endpoint = "jsonrpc";
 
-        $oauth=  new \OAuthSimple();
-        $oauth->setAction("POST");
-        $oAuthSignature = $oauth->sign(array(
-            'path'      =>  $this->api_url . "/" . $this->GetEndpoint($method),
-            'signatures'=> $this->signature));
+        $consumer = new \Eher\OAuth\Consumer($this->signature['consumer_key'], $this->signature['shared_secret']);
+        $signatureMethod = new \Eher\OAuth\HmacSha1();
+        $token = new \Eher\OAuth\Token($this->signature['oauth_token'], $this->signature['oauth_secret']);
+        $request = \Eher\OAuth\Request::from_consumer_and_token(
+            $consumer,
+            $token,
+            'POST',
+            $this->api_url . "/" . $this->GetEndpoint($method),
+            array()
+        );
+        $request->sign_request($signatureMethod, $consumer, $token);
 
         if ($method == "has_object_parts" || $method == "send_object_parts" || $method == "get_object_parts") {
             array_push($headers, "Content-Type: application/octect-stream");
@@ -574,7 +579,7 @@ class API
         array_push($headers, "X-Api-Version: 1.0");
         array_push($headers, "X-Client-Type: api");
         array_push($headers, "X-Client-Time: " . time());
-        array_push($headers, "Authorization: " .  $oAuthSignature['header']);
+        array_push($headers, $request->to_header());
 
         return $headers;
     }
