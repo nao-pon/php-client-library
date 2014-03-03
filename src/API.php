@@ -447,7 +447,7 @@ class API
         }
 
         // Now the cloud will set the partSize field to zero if it doesn't have the part
-        if ($part["partSize"] == 0) {
+        if ($response_body["partSize"] == 0) {
             return false;
         } else {
             return true;
