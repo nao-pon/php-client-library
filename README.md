@@ -63,7 +63,7 @@ foreach ($files as $file) {
 
 ## Delete a file
 ```php
-$copy->removeFile('/copy-file-path);
+$copy->removeFile('/copy-file-path');
 ```
 
 ### Installing via Composer
