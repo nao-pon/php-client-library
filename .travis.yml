@@ -9,7 +9,6 @@ php:
 - hhvm
 
 before_script:
-- pecl install oauth
 - composer self-update
 - composer install
 
