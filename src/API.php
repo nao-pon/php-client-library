@@ -367,7 +367,6 @@ class API
      * @param string $data        binary data
      * @param int    $shareId     setting this to zero is best, unless share id is known
      *
-     * @return array Returns the unpacked response from the server separated into header and body components
      */
     public function sendPart($fingerprint, $size, $data, $shareId = 0)
     {
@@ -380,41 +379,36 @@ class API
             print("Sending part $fingerprint \n");
         }
 
-        $packed_data = $this->packPart($this->fingerprint($data), strlen($data), $data, $shareId);
+        $request = array(
+            'parts' => array(
+                array(
+                    'share_id' => $shareId,
+                    'fingerprint' => $fingerprint,
+                    'size' => $size,
+                    'data' => 'BinaryData-0-' . $size
+                )
+            )
+        );
 
-        $header = $this->packHeader(strlen($packed_data));
+        $result = $this->post("send_object_parts_v2", $this->encodeRequest("send_object_parts_v2", $request) . chr(0) . $data);
 
-        if ($this->debug) {
-            printf("Size of part request is " . strlen($packed_data) . "\n");
+        // Decode the json reply
+        $result = json_decode($result);
+
+        // Check for errors
+        if ($result->{"error"} != null) {
+            throw new \Exception("Error sending part");
         }
 
-        $result = $this->post("send_object_parts", $header . $packed_data);
-
-        $response_header = $this->parseResponseHeader($result);
-
-        // See if we got an error
-        if ($response_header["errorCode"]) {
-            // Just the error string remains
-            throw new \Exception("Cloud returned part error " . "'" . substr($result, self::HEADER_STRUCT_SIZE) . "'");
+        if ($result->result->has_failed_parts) {
+            throw new \Exception("Error sending part: " . $result->result->failed_parts[0]["message"]);
         }
-
-        $part = $this->parseResponsePart($result);
-
-        // Check for part error
-        if ($part["partErrorCode"]) {
-            if ($this->debug) {
-                var_dump($part);
-            }
-            throw new \Exception("Got part error " . $part["partErrorCode"] . "'" . substr($result, self::HEADER_STRUCT_SIZE + self::PART_HEADER_STRUCT_SIZE) . "'");
-        }
-
-        return array( "header" => $header, "body" => $part );
     }
 
     /**
      * Check to see if a part already exists
      *
-     * @param  string $fingerprint md5 and sha1 concatinated
+     * @param  string $fingerprint md5 and sha1 concatenated
      * @param  int    $size        number of bytes
      * @param  int    $shareId     setting this to zero is best, unless share id is known
      * @return bool   true if part already exists
@@ -425,32 +419,35 @@ class API
             print("Checking if cloud has part $fingerprint \n");
         }
 
-        $part = $this->packPart($fingerprint, $size, "", $shareId);
+        $request = array(
+            'parts' => array(
+                array(
+                    'share_id' => $shareId,
+                    'fingerprint' => $fingerprint,
+                    'size' => $size
+                )
+            )
+        );
 
-        $header = $this->packHeader(strlen($part));
+        $result = $this->post("has_object_parts_v2", $this->encodeRequest("has_object_parts_v2", $request));
 
-        $result = $this->post("has_object_parts", $header . $part);
+        // Decode the json reply
+        $result = json_decode($result);
 
-        $response_header = $this->parseResponseHeader($result);
-
-        // See if we got an erro
-        if ($response_header["errorCode"]) {
-            // Just the error string remains
-            throw new \Exception("Cloud returned error " . "'" . substr($result, self::HEADER_STRUCT_SIZE) . "'");
+        // Check for errors
+        if ($result->{"error"} != null) {
+            throw new \Exception("Error checking for part");
         }
 
-        $response_body = $this->parseResponsePart($result);
-
-        // Check for part error
-        if ($response_body["partErrorCode"]) {
-            throw new \Exception("Got part error " . $response_body["partErrorCode"] . "'" . substr($result, self::HEADER_STRUCT_SIZE + self::PART_HEADER_STRUCT_SIZE) . "'");
-        }
-
-        // Now the cloud will set the partSize field to zero if it doesn't have the part
-        if ($response_body["partSize"] == 0) {
-            return false;
-        } else {
+        if ($result->{'result'}->{'needed_parts'} == null) {
             return true;
+        } else {
+            $part = $result->result->needed_parts[0];
+            if ($part->{'message'} != null) {
+                throw new \Exception("Error checking for part: " . $result['result']['needed_parts'][0]['message']);
+            } else {
+                return false;
+            }
         }
     }
 
@@ -469,41 +466,55 @@ class API
             print("Getting part $fingerprint \n");
         }
 
-        $part = $this->packPart($fingerprint, $size, "", $shareId);
-        $header = $this->packHeader(strlen($part));
+        $request = array(
+            'parts' => array(
+                array(
+                    'share_id' => $shareId,
+                    'fingerprint' => $fingerprint,
+                    'size' => $size
+                )
+            )
+        );
 
-        $result = $this->post("get_object_parts", $header . $part);
+        $result = $this->post("get_object_parts_v2", $this->encodeRequest("get_object_parts_v2", $request));
 
-        $response_header = $this->parseResponseHeader($result);
+        // Split up the json and binary payload
 
-        // See if we got an erro
-        if ($response_header["errorCode"]) {
-            // Just the error string remains
-            throw new \Exception("Cloud returned error " . "'" . substr($result, self::HEADER_STRUCT_SIZE) . "'");
+        // Find the null byte
+        if (($null_offset = strpos($result, chr(0))) != false) {
+            // Grab the binary payload
+            $binary = substr($result, $null_offset + 1, strlen($result) - $null_offset);
+
+            if ($binary === false) {
+                throw new \Exception("Error getting part data");
+            }
         }
 
-        $response_body = $this->parseResponsePart($result);
+        // Grab the json payload
+        $json = isset($binary) ? substr($result, 0, $null_offset) : $result;
 
-        // Check for part error
-        if ($response_body["partErrorCode"]) {
-            throw new \Exception("Got part error " . $response_body["partErrorCode"] . "'" . substr($result, self::HEADER_STRUCT_SIZE + self::PART_HEADER_STRUCT_SIZE) . "'");
+        if ($json === false) {
+            throw new \Exception("Error getting part data");
         }
 
-        // No error, see if data is in there
-        if ($response_body["payloadSize"] == 0) {
-            throw new \Exception("No data sent for part ");
+        // Decode the json reply
+        $result = json_decode($json);
+
+        // Check for errors
+        if ($result->{"error"} != null) {
+            throw new \Exception("Error getting part data");
         }
 
-        // Get the data out of there
-        $data = substr($result, self::HEADER_STRUCT_SIZE + self::PART_HEADER_STRUCT_SIZE, $response_body["payloadSize"]);
-
-        // Triple check the data matches the fingerprint
-        if ($this->fingerprint($data) != $fingerprint) {
-            throw new \Exception("Failed to validate part hash");
+        if ($result->result->parts[0]->{"message"} != null) {
+            throw new \Exception("Error getting part data: " . $result->result->parts[0]->message);
         }
 
-        // Part hash matches, return it
-        return $data;
+        // Get the part data (since there is only one part the binary payload should just be the data)
+        if (strlen($binary) != $size) {
+            throw new \Exception("Error getting part data");
+        }
+
+        return $binary;
     }
 
     /**
@@ -544,6 +555,8 @@ class API
     {
         if ($method == "has_object_parts" || $method == "send_object_parts" || $method == "get_object_parts") {
             return $method;
+        } elseif ($method == "has_object_parts_v2" || $method == "send_object_parts_v2" || $method == "get_object_parts_v2") {
+	        return "jsonrpc_binary";
         } else {
             return "jsonrpc";
         }
