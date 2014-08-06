@@ -4,6 +4,7 @@
 
 if (extension_loaded('xdebug') === false) {
 	echo 'Code coverage check has been disabled, due to the xdebug extension not being loaded' . PHP_EOL;
+	exit(0);
 }
 
 $inputFile  = $argv[1];
