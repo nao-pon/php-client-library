@@ -37,31 +37,6 @@ class APITest extends PHPUnit_Framework_TestCase
         $this->api = new \Barracuda\Copy\API($_SERVER['CONSUMER_KEY'], $_SERVER['CONSUMER_SECRET'], $_SERVER['ACCESS_TOKEN'], $_SERVER['ACCESS_TOKEN_SECRET'], false);
     }
 
-    public function testHeader()
-    {
-        $example_header_file = __DIR__ . "/example_header";
-
-        $fh = fopen($example_header_file, "rb");
-        $header = $this->api->packHeader(57);
-        $header_example = fread($fh, filesize($example_header_file));
-        $this->assertEquals($header, $header_example);
-
-    }
-
-    public function testPackedPart()
-    {
-        $example_packed_part_file = __DIR__ . "/example_packed_part";
-        $part_data = "This is a test of the emergency broadcast system.";
-        $part_fingerprint = $this->api->fingerprint($part_data);
-        $part_size = strlen($part_data);
-
-
-        $fh = fopen($example_packed_part_file, "rb");
-        $packed_part = $this->api->packPart($part_fingerprint, $part_size, $part_data);
-        $packed_example = fread($fh, filesize($example_packed_part_file));
-        $this->assertEquals($packed_part, $packed_example);
-    }
-
     public function testCreateFile()
     {
         // Ensure the local file exists
@@ -97,6 +72,7 @@ class APITest extends PHPUnit_Framework_TestCase
         // Ensure the file exists
         $files = $this->api->listPath('/' . basename(self::$data_filepath), array("include_parts" => true));
         $this->assertTrue(is_array($files), 'listPath should return an array');
+        $this->assertNotEmpty($files, 'listPath should return at least one item');
 
         // Found it, verify its a file
         foreach ($files as $file) {

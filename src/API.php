@@ -22,8 +22,6 @@ class API
      * @var string $api_url
      */
     protected $api_url = 'https://api.copy.com';
-	//protected $api_url = 'http://api.copy.local';
-
 
     /**
      * Instance of curl
@@ -243,121 +241,6 @@ class API
     public function fingerprint($data)
     {
         return md5($data) . sha1($data);
-    }
-
-    /**
-     *
-     * Returns the binary header for a given data size and part count
-     *
-     * @param integer $size Byte count of the data being sent including part header info.
-     * @param integer $part_count Number of parts being sent.
-     *
-     * @return string Binary header for a sendData request.
-    **/
-    public function packHeader($size, $part_count = 1)
-    {
-        $header =
-            pack("N", self::HEADER_DELIMTER) .     // uint32_t Fixed signature "0xba5eba11"
-            pack("N", self::HEADER_STRUCT_SIZE) .          // uint32_t Size of this structure
-            pack("N", 1) .              // uint32_t Struct version (1)
-            pack("N", $size) .          // uint32_t Total size of all data after the header
-            pack("N", $part_count) .    // uint32_t Part count
-            pack("N", 0);               // uint32_t Error code for errors regarding the entire request
-
-        return $header;
-    }
-
-    /**
-     *
-     * Adds binary part information to the beginning of the data.
-     *
-     * @param string $fingerprint Fingerprint for the data being requested/sent.
-     * @param string $part_size 
-     * @param string $data (optional) Data part to be packaged. Empty string for requests that send no data. 
-     * @param integer $shareId 
-     *
-     * @return string Binary string with the header information and data.
-    **/
-    public function packPart($fingerprint, $part_size, $data = "", $shareId = 0)
-    {
-        $payload_size = strlen($data);
-
-        // Pack in the part
-        $partHeader =
-            pack("N", self::PART_DELIMITER) .                           // uint32_t // "0xcab005e5"
-            pack("N", self::PART_HEADER_STRUCT_SIZE  + $payload_size) . // uint32_t // Size of this struct plus payload size
-            pack("N", 1) .                                              // uint32_t // Struct version
-            pack("N", $shareId) .                                       // uint32_t // Share id for part (for verification)
-            pack("a73", $fingerprint) .                                 // char[73] // Part fingerprint
-            pack("N", $part_size) .                                     // uint32_t // Size of the part
-            pack("N", $payload_size) .                                  // uint32_t // Size of our payload (partSize or 0, error msg size on error)
-            pack("N", 0) .                                              // uint32_t // Error code for individual parts
-            pack("N", 0);                                               // uint32_t // Reserved for future use
-
-        return $partHeader . $data;
-
-    }
-
-    /**
-     *
-     * Parse the packed header to an API request into a
-     * associative array.
-     *
-     * @param string $curl_result The response from the cURL request
-     *
-     * @return array Parsed header 
-     *
-    **/
-    private function parseResponseHeader($curl_result)
-    {
-        $response_header = unpack(
-            // Parse our the header
-            "N1signature/" .            // uint32_t Fixed signature "0xba5eba11"
-            "N1size/" .                 // uint32_t Size of this structure
-            "N1version/" .              // uint32_t Struct version (1)
-            "N1totalSize/" .            // uint32_t Total size of all data after the header
-            "N1partCount/" .            // uint32_t Part count
-            "N1errorCode/",             // uint32_t Error code for errors regarding the entire
-            $curl_result);
-
-        if (!$response_header) {
-            throw new \Exception("Failed to parse binary part reply");
-        }
-
-        return $response_header;
-    }
-
-
-    /**
-     *
-     * Parse the packed response body to an API request into a
-     * associative array.
-     *
-     * @param string $curl_result The response from the cURL request
-     *
-     * @return array Parsed body 
-     *
-    **/
-    private function parseResponsePart($curl_result)
-    {
-        $part = unpack(
-            // Parse out the part
-            "N1partSignature/" .        // uint32_t // "0xcab005e5"
-            "N1partWithPayloadSize/" .  // uint32_t // Size of this struct plus payload size
-            "N1partVersion/" .          // uint32_t // Struct version
-            "N1partShareId/" .          // uint32_t // Share id for part (for verification)
-            "a73partFingerprint/" .     // char[73] // Part fingerprint
-            "N1partSize/" .             // uint32_t // Size of the part
-            "N1payloadSize/" .          // uint32_t // Size of our payload (partSize or 0, error msg size on error)
-            "N1partErrorCode/" .        // uint32_t // Error code for individual parts
-            "N1reserved/",              // uint32_t // Reserved for future use
-            substr($curl_result, self::HEADER_STRUCT_SIZE));
-
-        if (!$part) {
-            throw new \Exception("Failed to parse binary part reply");
-        }
-
-        return $part;
     }
 
     /**
