@@ -22,6 +22,7 @@ class API
      * @var string $api_url
      */
     protected $api_url = 'https://api.copy.com';
+	//protected $api_url = 'http://api.copy.local';
 
 
     /**
@@ -132,7 +133,7 @@ class API
         $result = json_decode($result);
 
         // Check for errors
-        if ($result->{"error"} != null) {
+        if (isset($result->error)) {
             throw new \Exception("Error creating file '" . $result->{"error"}->{"message"} . "'");
         }
 
@@ -163,7 +164,7 @@ class API
         $result = json_decode($result);
 
         // Check for errors
-        if ($result->{"error"} != null) {
+        if (isset($result->error)) {
             throw new \Exception("Error removing file '" . $result->{"error"}->{"message"} . "'");
         }
 
@@ -216,12 +217,12 @@ class API
             $result = json_decode($result);
 
             // Check for errors
-            if ($result->{"error"} != null) {
+            if (isset($result->error)) {
                 throw new \Exception("Error listing path " . $path . ": '" . $result->{"error"}->{"message"} . "'");
             }
 
             // add the children if we got some, otherwise add the root object itself to the return
-            if ($result->{"result"}->{"children"}) {
+            if (isset($result->result->children)) {
                 $return = array_merge($return, $result->result->children);
                 $list_watermark = $result->result->list_watermark;
             } else {
@@ -396,12 +397,12 @@ class API
         $result = json_decode($result);
 
         // Check for errors
-        if ($result->{"error"} != null) {
+        if (isset($result->message)) {
             throw new \Exception("Error sending part");
         }
 
         if ($result->result->has_failed_parts) {
-            throw new \Exception("Error sending part: " . $result->result->failed_parts[0]["message"]);
+            throw new \Exception("Error sending part: " . $result->result->failed_parts[0]->message);
         }
     }
 
@@ -435,16 +436,16 @@ class API
         $result = json_decode($result);
 
         // Check for errors
-        if ($result->{"error"} != null) {
+        if (isset($result->error)) {
             throw new \Exception("Error checking for part");
         }
 
-        if ($result->{'result'}->{'needed_parts'} == null) {
+        if (empty($result->result->needed_parts)) {
             return true;
         } else {
             $part = $result->result->needed_parts[0];
-            if ($part->{'message'} != null) {
-                throw new \Exception("Error checking for part: " . $result['result']['needed_parts'][0]['message']);
+            if (!empty($part->message)) {
+                throw new \Exception("Error checking for part: " . $part->message);
             } else {
                 return false;
             }
@@ -501,11 +502,11 @@ class API
         $result = json_decode($json);
 
         // Check for errors
-        if ($result->{"error"} != null) {
+        if (isset($result->error)) {
             throw new \Exception("Error getting part data");
         }
 
-        if ($result->result->parts[0]->{"message"} != null) {
+        if (isset($result->result->parts[0]->message)) {
             throw new \Exception("Error getting part data: " . $result->result->parts[0]->message);
         }
 
