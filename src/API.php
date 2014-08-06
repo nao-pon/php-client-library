@@ -222,7 +222,7 @@ class API
             }
 
             // add the children if we got some, otherwise add the root object itself to the return
-            if (isset($result->result->children)) {
+            if (isset($result->result->children) && empty($result->result->children) === false) {
                 $return = array_merge($return, $result->result->children);
                 $list_watermark = $result->result->list_watermark;
             } else {
