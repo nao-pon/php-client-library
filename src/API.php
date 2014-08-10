@@ -280,8 +280,8 @@ class API
         $result = json_decode($result);
 
         // Check for errors
-        if (isset($result->message)) {
-            throw new \Exception("Error sending part");
+        if (isset($result->error->message)) {
+            throw new \Exception("Error sending part: " . $result->error->message);
         }
 
         if ($result->result->has_failed_parts) {
@@ -437,9 +437,7 @@ class API
      */
     private function getEndpoint($method)
     {
-        if ($method == "has_object_parts" || $method == "send_object_parts" || $method == "get_object_parts") {
-            return $method;
-        } elseif ($method == "has_object_parts_v2" || $method == "send_object_parts_v2" || $method == "get_object_parts_v2") {
+        if ($method == "has_object_parts_v2" || $method == "send_object_parts_v2" || $method == "get_object_parts_v2") {
 	        return "jsonrpc_binary";
         } else {
             return "jsonrpc";
@@ -469,7 +467,7 @@ class API
         );
         $request->sign_request($signatureMethod, $consumer, $token);
 
-        if ($method == "has_object_parts" || $method == "send_object_parts" || $method == "get_object_parts") {
+        if ($method == "has_object_parts_v2" || $method == "send_object_parts_v2" || $method == "get_object_parts_v2") {
             array_push($headers, "Content-Type: application/octect-stream");
         }
 

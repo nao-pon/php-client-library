@@ -16,7 +16,7 @@ class APITest extends PHPUnit_Framework_TestCase
         for ($i = 0; $i < 100; $i++) {
             fwrite($fh, rand(0, getrandmax()));
         }
-        fwrite($fh, str_repeat('Copy.com ', 1024));
+        fwrite($fh, str_repeat('Copy.com=', 1024));
         fclose($fh);
     }
 
