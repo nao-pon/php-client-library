@@ -66,6 +66,11 @@ foreach ($files as $file) {
 $copy->removeFile('/copy-file-path');
 ```
 
+## Rename an object
+```php
+$copy->rename('/source-copy-file-path', '/destination-copy-file-path');
+```
+
 ### Installing via Composer
 
 The recommended way to install the Copy PHP API is through [Composer](http://getcomposer.org).
