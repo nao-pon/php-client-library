@@ -170,9 +170,59 @@ class API
     }
 
     /**
+     * Rename a file
+     *
+     * Object structure:
+     * {
+     *  object_id: "4008"
+     *  path: "/example"
+     *  type: "dir" || "file"
+     *  share_id: "0"
+     *  share_owner: "21956799"
+     *  company_id: NULL
+     *  size: filesize in bytes, 0 for folders
+     *  created_time: unix timestamp, e.g. "1389731126"
+     *  modified_time: unix timestamp, e.g. "1389731126"
+     *  date_last_synced: unix timestamp, e.g. "1389731126"
+     *  removed_time: unix timestamp, e.g. "1389731126" or empty string for non-deleted files/folders
+     *  mime_type: string
+     *  revisions: array of revision objects
+     * }
+     *
+     * @param string $source_path full path containing leading slash and file name
+     * @param string $destination_path full path containing leading slash and file name
+     *
+     * @return stdClass using structure as noted above
+     */
+    public function rename($source_path, $destination_path)
+    {
+        if ($this->debug) {
+            print("Renaming object at path " . $source_path . " to " . $destination_path . "\n");
+        }
+
+        $request = array();
+        $request["action"] = "rename";
+        $request["path"] = $source_path;
+        $request["new_path"] = $destination_path;
+
+        $result = $this->post("update_objects", $this->encodeRequest("update_objects", array("meta" => array($request))));
+
+        // Decode the json reply
+        $result = json_decode($result);
+
+        // Check for errors
+        if (isset($result->error)) {
+            throw new \Exception("Error renaming file '" . $result->{"error"}->{"message"} . "'");
+        }
+
+        // Return the object
+        return $result->{"result"}[0]->{"object"};
+    }
+
+    /**
      * List objects within a path
      *
-     * Object structure: 
+     * Object structure:
      * {
      *  object_id: "4008"
      *  path: "/example"

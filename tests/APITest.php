@@ -103,8 +103,16 @@ class APITest extends PHPUnit_Framework_TestCase
     /**
      * @depends testGetPart
      */
+    public function testRenameFile()
+    {
+        $this->api->rename('/' . basename(self::$data_filepath), '/' . basename(self::$data_filepath) . '.renamed');
+    }
+
+    /**
+     * @depends testRenameFile
+     */
     public function testRemoveFile()
     {
-        $this->api->removeFile('/' . basename(self::$data_filepath));
+        $this->api->removeFile('/' . basename(self::$data_filepath) . '.renamed');
     }
 }
