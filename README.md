@@ -9,6 +9,8 @@ This library demos the binary part api, an efficient way to de-dupe and send/rec
 
 This demo works with the OAUTH api, which you will need to setup at the Copy developer portal (https://www.copy.com/developer/).
 
+Please check out our [changelog](https://github.com/copy-app/php-client-library/wiki/ChangeLog) to see what has changed between versions.
+
 ### The Basics
 
 ## Connect to the cloud
