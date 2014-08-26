@@ -70,73 +70,7 @@ class API
         curl_setopt($this->curl, CURLOPT_CAINFO, __DIR__ . '/ca.crt');
     }
 
-    /**
-     * Send a piece of data
-     *
-     * @param  string $data    binary data
-     * @param  int    $shareId setting this to zero is best, unless share id is known
-     *
-     * @return array  contains fingerprint and size, to be used when creating a file
-     */
-    public function sendData($data, $shareId = 0)
-    {
-        // first generate a part hash
-        $fingerprint = $this->fingerprint($data);
-        $part_size = strlen($data);
-
-        // see if the cloud has this part, and send if needed
-        if(!$this->hasPart($fingerprint, $part_size, $shareId))
-            $this->sendPart($fingerprint, $part_size, $data, $shareId);
-
-        // return information about this part
-        return array("fingerprint" => $fingerprint, "size" => $part_size);
-    }
-
-    /**
-     * Create a file with a set of data parts
-     *
-     * @param string $path  full path containing leading slash and file name
-     * @param array  $parts contains arrays of parts returned by \Barracuda\Copy\API\sendData
-     *
-     * @return boolean True if the file was created successfully.
-     */
-    public function createFile($path, $parts)
-    {
-        if ($this->debug) {
-            print("Creating file at path " . $path . "\n");
-        }
-
-        $request = array();
-        $request["action"] = "create";
-        $request["object_type"] = "file";
-        $request["parts"] = array();
-        $request["path"] = $path;
-
-        $offset = 0;
-        foreach ($parts as $part) {
-            $partRequest["fingerprint"] = $part["fingerprint"];
-            $partRequest["offset"] = $offset;
-            $partRequest["size"] = $part["size"];
-
-            array_push($request["parts"], $partRequest);
-
-            $offset += $part["size"];
-        }
-
-        $request["size"] = $offset;
-
-        $result = $this->post("update_objects", $this->encodeRequest("update_objects", array("meta" => array($request))));
-
-        // Decode the json reply
-        $result = json_decode($result);
-
-        // Check for errors
-        if (isset($result->error)) {
-            throw new \Exception("Error creating file '" . $result->{"error"}->{"message"} . "'");
-        }
-
-        return true;
-    }
+    
 
     /**
      * Send a request to remove a given file.
@@ -282,6 +216,69 @@ class API
     }
 
     /**
+     * Create a file with a set of data parts
+     *
+     * Object structure:
+     * {
+     *  object_id: "4008"
+     *  path: "/example"
+     *  type: "dir" || "file"
+     *  share_id: "0"
+     *  share_owner: "21956799"
+     *  company_id: NULL
+     *  size: filesize in bytes, 0 for folders
+     *  created_time: unix timestamp, e.g. "1389731126"
+     *  modified_time: unix timestamp, e.g. "1389731126"
+     *  date_last_synced: unix timestamp, e.g. "1389731126"
+     *  removed_time: unix timestamp, e.g. "1389731126" or empty string for non-deleted files/folders
+     *  mime_type: string
+     *  revisions: array of revision objects
+     * }
+     *
+     * @param string $path  full path containing leading slash and file name
+     * @param array  $parts contains arrays of parts returned by \Barracuda\Copy\API\sendData
+     *
+     * @return object described above.
+     */
+    public function createFile($path, $parts)
+    {
+        if ($this->debug) {
+            print("Creating file at path " . $path . "\n");
+        }
+
+        $request = array();
+        $request["action"] = "create";
+        $request["object_type"] = "file";
+        $request["parts"] = array();
+        $request["path"] = $path;
+
+        $offset = 0;
+        foreach ($parts as $part) {
+            $partRequest["fingerprint"] = $part["fingerprint"];
+            $partRequest["offset"] = $offset;
+            $partRequest["size"] = $part["size"];
+
+            array_push($request["parts"], $partRequest);
+
+            $offset += $part["size"];
+        }
+
+        $request["size"] = $offset;
+
+        $result = $this->post("update_objects", $this->encodeRequest("update_objects", array("meta" => array($request))));
+
+        // Decode the json reply
+        $result = json_decode($result);
+
+        // Check for errors
+        if (isset($result->error)) {
+            throw new \Exception("Error creating file '" . $result->{"error"}->{"message"} . "'");
+        }
+
+        return $result->result[0]->object;
+    }
+
+    /**
      * Generate the fingerprint for a string of data.
      *
      * @param string $data Data part to generate the fingerprint for.
@@ -291,6 +288,28 @@ class API
     public function fingerprint($data)
     {
         return md5($data) . sha1($data);
+    }
+
+    /**
+     * Send a piece of data
+     *
+     * @param  string $data    binary data
+     * @param  int    $shareId setting this to zero is best, unless share id is known
+     *
+     * @return array  contains fingerprint and size, to be used when creating a file
+     */
+    public function sendData($data, $shareId = 0)
+    {
+        // first generate a part hash
+        $fingerprint = $this->fingerprint($data);
+        $part_size = strlen($data);
+
+        // see if the cloud has this part, and send if needed
+        if(!$this->hasPart($fingerprint, $part_size, $shareId))
+            $this->sendPart($fingerprint, $part_size, $data, $shareId);
+
+        // return information about this part
+        return array("fingerprint" => $fingerprint, "size" => $part_size);
     }
 
     /**

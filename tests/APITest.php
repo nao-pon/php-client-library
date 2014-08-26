@@ -51,7 +51,8 @@ class APITest extends PHPUnit_Framework_TestCase
         }
         fclose($fh);
 
-        $this->api->createFile('/' . basename(self::$data_filepath), $parts);
+        $file = $this->api->createFile('/' . basename(self::$data_filepath), $parts);
+        $this->assertObjectHasAttribute('type', $file);
     }
 
     /**
