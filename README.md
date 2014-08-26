@@ -47,7 +47,7 @@ $copy->createFile('/copy-file-path', $parts);
 
 ## Downloading a file
 ```php
-// obtain a list of file and parts
+// obtain a list of files and parts
 $files = $copy->listPath('/copy-file-path', array("include_parts" => true));
 
 // process each file
