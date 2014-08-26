@@ -518,7 +518,7 @@ class API
         $request->sign_request($signatureMethod, $consumer, $token);
 
         if ($method == "has_object_parts_v2" || $method == "send_object_parts_v2" || $method == "get_object_parts_v2") {
-            array_push($headers, "Content-Type: application/octect-stream");
+            array_push($headers, "Content-Type: application/octet-stream");
         }
 
         array_push($headers, "X-Api-Version: 1.0");
