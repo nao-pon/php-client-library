@@ -168,9 +168,34 @@ class API
      *
      * @param string $path full path containing leading slash and file name
      *
-     * @return bool True if the file was removed successfully
+     * @return bool true if the file was removed successfully
      */
     public function removeFile($path)
+    {
+        return $this->removeItem($path, 'file');
+    }
+
+    /**
+     * Send a request to remove a given dir.
+     *
+     * @param string $path full path containing leading slash and dir name
+     *
+     * @return bool true if the dir was removed successfully
+     */
+    public function removeDir($path)
+    {
+        return $this->removeItem($path, 'dir');
+    }
+
+    /**
+     * Send a request to remove a given item.
+     *
+     * @param string $path full path containing leading slash and file name
+     * @param string $type file or dir
+     *
+     * @return bool true if the item was removed successfully
+     */
+    private function removeItem($path, $type)
     {
         if ($this->debug) {
             print("Removing file at path " . $path . "\n");
@@ -178,7 +203,7 @@ class API
 
         $request = array();
         $request["action"] = "remove";
-        $request["object_type"] = "file";
+        $request["object_type"] = $type;
         $request["path"] = $path;
 
         $result = $this->post("update_objects", $this->encodeRequest("update_objects", array("meta" => array($request))));
@@ -238,6 +263,56 @@ class API
         // Check for errors
         if (isset($result->error)) {
             throw new \Exception("Error renaming file '" . $result->{"error"}->{"message"} . "'");
+        }
+
+        // Return the object
+        return $result->{"result"}[0]->{"object"};
+    }
+
+    /**
+     * Copy an item
+     *
+     * Object structure:
+     * {
+     *  object_id: "4008"
+     *  path: "/example"
+     *  type: "dir" || "file"
+     *  share_id: "0"
+     *  share_owner: "21956799"
+     *  company_id: NULL
+     *  size: filesize in bytes, 0 for folders
+     *  created_time: unix timestamp, e.g. "1389731126"
+     *  modified_time: unix timestamp, e.g. "1389731126"
+     *  date_last_synced: unix timestamp, e.g. "1389731126"
+     *  removed_time: unix timestamp, e.g. "1389731126" or empty string for non-deleted files/folders
+     *  mime_type: string
+     *  revisions: array of revision objects
+     * }
+     *
+     * @param string $source_path full path containing leading slash and file name
+     * @param string $destination_path full path containing leading slash and file name
+     *
+     * @return stdClass using structure as noted above
+     */
+    public function copy($source_path, $destination_path)
+    {
+        if ($this->debug) {
+            print("Copy object at path " . $source_path . " to " . $destination_path . "\n");
+        }
+
+        $request = array();
+        $request["action"] = "copy";
+        $request["path"] = $source_path;
+        $request["new_path"] = $destination_path;
+
+        $result = $this->post("update_objects", $this->encodeRequest("update_objects", array("meta" => array($request))));
+
+        // Decode the json reply
+        $result = json_decode($result);
+
+        // Check for errors
+        if (isset($result->error)) {
+            throw new \Exception("Error copying object '" . $result->{"error"}->{"message"} . "'");
         }
 
         // Return the object
@@ -307,13 +382,62 @@ class API
     }
 
     /**
+     * Create a dir
+     *
+     * Object structure:
+     * {
+     *  object_id: "4008"
+     *  path: "/example"
+     *  type: "dir"
+     *  share_id: "0"
+     *  share_owner: "21956799"
+     *  company_id: NULL
+     *  size: filesize in bytes, 0 for folders
+     *  created_time: unix timestamp, e.g. "1389731126"
+     *  modified_time: unix timestamp, e.g. "1389731126"
+     *  date_last_synced: unix timestamp, e.g. "1389731126"
+     *  removed_time: unix timestamp, e.g. "1389731126" or empty string for non-deleted files/folders
+     * }
+     *
+     * @param string $path      full path containing leading slash and dir name
+     * @param bool   $recursive true to create parent directories
+     *
+     * @return object described above.
+     */
+    public function createDir($path, $recursive = true)
+    {
+        if ($this->debug) {
+            print("Creating dir with path: " . $path . "\n");
+        }
+
+        $request = array();
+        $request["action"] = "create";
+        $request["object_type"] = "dir";
+        $request["path"] = $path;
+        $request["recurse"] = $recursive;
+
+        $result = $this->post("update_objects", $this->encodeRequest("update_objects", array("meta" => array($request))));
+
+        // Decode the json reply
+        $result = json_decode($result);
+
+        // Check for errors
+        if (isset($result->error)) {
+            throw new \Exception("Error creating dir '" . $result->{"error"}->{"message"} . "'");
+        }
+
+        // Return the object
+        return $result->{"result"}[0]->{"object"};
+    }
+
+    /**
      * Create a file with a set of data parts
      *
      * Object structure:
      * {
      *  object_id: "4008"
      *  path: "/example"
-     *  type: "dir" || "file"
+     *  type: "file"
      *  share_id: "0"
      *  share_owner: "21956799"
      *  company_id: NULL

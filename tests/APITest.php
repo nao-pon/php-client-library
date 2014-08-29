@@ -146,9 +146,39 @@ class APITest extends PHPUnit_Framework_TestCase
     /**
      * @depends testRenameFile
      */
+    public function testCreateDir()
+    {
+        $dir = $this->api->createDir('/a/long/path');
+        $this->assertObjectHasAttribute('type', $dir);
+    }
+
+    /**
+     * @depends testCreateDir
+     */
+    public function testCopyFile()
+    {
+        $file = $this->api->copy('/' . basename(self::$data_filepath) . '.renamed', '/a/long/path/' . basename(self::$data_filepath) . '.copied');
+        $this->assertObjectHasAttribute('type', $file);
+    }
+
+    /**
+     * @depends testCopyFile
+     */
     public function testRemoveFile()
     {
         $result = $this->api->removeFile('/' . basename(self::$data_filepath) . '.renamed');
+        $this->assertTrue($result);
+
+        $result = $this->api->removeFile('/a/long/path/' . basename(self::$data_filepath) . '.copied');
+        $this->assertTrue($result);
+    }
+
+    /**
+     * @depends testRemoveFile
+     */
+    public function testRemoveDir()
+    {
+        $result = $this->api->removeDir('/a');
         $this->assertTrue($result);
     }
 }
