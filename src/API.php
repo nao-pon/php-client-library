@@ -10,13 +10,6 @@ namespace Barracuda\Copy;
  */
 class API
 {
-
-    const HEADER_DELIMTER = 0xba5eba11;
-    const PART_DELIMITER = 0xcab005e5;
-    const FINGERPRINT_SIZE = 73;
-    const HEADER_STRUCT_SIZE = 24; // 6 * 4
-    const PART_HEADER_STRUCT_SIZE = 105; // 8 * 4 + FINGERPRINT_SIZE
-
     /**
      * API URl
      * @var string $api_url
