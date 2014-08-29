@@ -10,13 +10,6 @@ namespace Barracuda\Copy;
  */
 class API
 {
-
-    const HEADER_DELIMTER = 0xba5eba11;
-    const PART_DELIMITER = 0xcab005e5;
-    const FINGERPRINT_SIZE = 73;
-    const HEADER_STRUCT_SIZE = 24; // 6 * 4
-    const PART_HEADER_STRUCT_SIZE = 105; // 8 * 4 + FINGERPRINT_SIZE
-
     /**
      * API URl
      * @var string $api_url
@@ -70,7 +63,105 @@ class API
         curl_setopt($this->curl, CURLOPT_CAINFO, __DIR__ . '/ca.crt');
     }
 
-    
+    /**
+     * Upload a file from a string
+     *
+     * @param string $path full path containing leading slash and file name
+     * @param string $data binary data
+     *
+     * @return object described in createFile()
+     */
+    public function uploadFromString($path, $data)
+    {
+        // create the temporary stream
+        $stream = fopen('php://temp', 'w+');
+
+        // write the data
+        fwrite($stream, $data);
+
+        // rewind the pointer
+        rewind($stream);
+
+        // upload as a stream
+        return $this->uploadFromStream($path, $stream);
+    }    
+
+    /**
+     * Upload a file from a stream resource
+     *
+     * @param string $path full path containing leading slash and file name
+     * @param resource $stream resource to read data from
+     *
+     * @return object described in createFile()
+     */
+    public function uploadFromStream($path, $stream)
+    {
+        // send data 1MB at a time
+        $parts = array();
+        while ($buffer = fread($stream, 1048576)) {
+            $parts[] = $this->sendData($buffer);
+        }
+
+        // close the stream
+        fclose($stream);
+
+        // update the file in the cloud
+        return $this->createFile('/' . $path, $parts);
+    }
+
+    /**
+     * Read a file to a string
+     *
+     * @param string $path full path containing leading slash and file name
+     *
+     * @return array contains key of contents which contains binary data of the file
+     */
+    public function readToString($path)
+    {
+        $object = $this->readToStream($path);
+        $object['contents'] = stream_get_contents($object['stream']);
+        fclose($object['stream']);
+        unset($object['stream']);
+
+        return $object;
+    }
+
+    /**
+     * Read a file to a stream
+     *
+     * @param string $path full path containing leading slash and file name
+     *
+     * @return array contains key of stream which contains a stream resource
+     */
+    public function readToStream($path)
+    {
+        // create the temporary stream
+        $stream = fopen('php://temp', 'w+');
+
+        // obtain the list of parts for the file (should be an array of one)
+        $files = $this->listPath('/' . $path, array('include_parts' => true));
+
+        if (is_array($files) === false || sizeof($files) !== 1) {
+            throw new \Exception("Could not find file at path: '" . $path . "'");
+        }
+
+        // found it, verify its a file
+        $file = array_pop($files);
+        if ($file->{"type"} != "file") {
+            throw new \Exception("Could not find file at path: '" . $path . "'");
+        }
+
+        // obtain each part and add it to the stream
+        foreach ($file->{"revisions"}[0]->{"parts"} as $part) {
+            $data = $this->getPart($part->{"fingerprint"}, $part->{"size"});
+            fwrite($stream, $data);
+        }
+
+        // rewind the pointer
+        rewind($stream);
+
+        return compact('stream');
+    }
 
     /**
      * Send a request to remove a given file.
@@ -275,6 +366,10 @@ class API
             throw new \Exception("Error creating file '" . $result->{"error"}->{"message"} . "'");
         }
 
+        if (isset($result->result[0]->object) === false) {
+            throw new \Exception("Error creating file due to an unknown issue");
+        }
+
         return $result->result[0]->object;
     }
 
@@ -305,8 +400,9 @@ class API
         $part_size = strlen($data);
 
         // see if the cloud has this part, and send if needed
-        if(!$this->hasPart($fingerprint, $part_size, $shareId))
+        if(!$this->hasPart($fingerprint, $part_size, $shareId)) {
             $this->sendPart($fingerprint, $part_size, $data, $shareId);
+        }
 
         // return information about this part
         return array("fingerprint" => $fingerprint, "size" => $part_size);
