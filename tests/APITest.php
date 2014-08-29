@@ -13,10 +13,12 @@ class APITest extends PHPUnit_Framework_TestCase
 
         // pump data into dummy file
         $fh = fopen(self::$data_filepath, 'a+b');
-        for ($i = 0; $i < 100; $i++) {
-            fwrite($fh, rand(0, getrandmax()));
+        while (ftell($fh) < 1048576) {
+            for ($i = 0; $i < 100; $i++) {
+                fwrite($fh, rand(0, getrandmax()));
+            }
+            fwrite($fh, str_repeat('Copy.com=', 1024));
         }
-        fwrite($fh, str_repeat('Copy.com=', 1024));
         fclose($fh);
     }
 
@@ -37,6 +39,37 @@ class APITest extends PHPUnit_Framework_TestCase
         $this->api = new \Barracuda\Copy\API($_SERVER['CONSUMER_KEY'], $_SERVER['CONSUMER_SECRET'], $_SERVER['ACCESS_TOKEN'], $_SERVER['ACCESS_TOKEN_SECRET'], false);
     }
 
+    public function testUploadFromString()
+    {
+        // get the test data contents
+        $data = file_get_contents(self::$data_filepath);
+
+        // upload the test file
+        $file = $this->api->uploadFromString('/' . basename(self::$data_filepath), $data);
+        $this->assertObjectHasAttribute('type', $file);
+    }
+
+    /**
+     * @depends testUploadFromString
+     */
+    public function testReadToString()
+    {
+        // obtain the file
+        $file = $this->api->readToString('/' . basename(self::$data_filepath));
+        $this->assertArrayHasKey('contents', $file);
+
+        // compare to generated data
+        $genearted_data = file_get_contents(self::$data_filepath);
+        $this->assertEquals(md5($genearted_data) , md5($file['contents']));
+
+        // delete the test file
+        $result = $this->api->removeFile('/' . basename(self::$data_filepath));
+        $this->assertTrue($result);
+    }
+
+    /**
+     * @depends testReadToString
+     */
     public function testCreateFile()
     {
         // Ensure the local file exists
@@ -106,7 +139,8 @@ class APITest extends PHPUnit_Framework_TestCase
      */
     public function testRenameFile()
     {
-        $this->api->rename('/' . basename(self::$data_filepath), '/' . basename(self::$data_filepath) . '.renamed');
+        $file = $this->api->rename('/' . basename(self::$data_filepath), '/' . basename(self::$data_filepath) . '.renamed');
+        $this->assertObjectHasAttribute('type', $file);
     }
 
     /**
@@ -114,6 +148,7 @@ class APITest extends PHPUnit_Framework_TestCase
      */
     public function testRemoveFile()
     {
-        $this->api->removeFile('/' . basename(self::$data_filepath) . '.renamed');
+        $result = $this->api->removeFile('/' . basename(self::$data_filepath) . '.renamed');
+        $this->assertTrue($result);
     }
 }
