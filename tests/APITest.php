@@ -4,10 +4,14 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 class APITest extends PHPUnit_Framework_TestCase
 {
+    protected static $random_string;
     protected static $data_filepath;
 
     public static function setUpBeforeClass()
     {
+        // generate dummy path
+        self::$random_string = hash('sha256', time() . getmypid() + rand());
+
         // generate dummy data file
         self::$data_filepath = tempnam(sys_get_temp_dir(), 'copy-unit-test.tmp');
 
@@ -157,7 +161,7 @@ class APITest extends PHPUnit_Framework_TestCase
      */
     public function testCopyFile()
     {
-        $file = $this->api->copy('/' . basename(self::$data_filepath) . '.renamed', '/a/long/path/' . basename(self::$data_filepath) . '.copied');
+        $file = $this->api->copy('/' . basename(self::$data_filepath) . '.renamed', '/' . self::$random_string . '/' . basename(self::$data_filepath) . '.copied');
         $this->assertObjectHasAttribute('type', $file);
     }
 
@@ -169,7 +173,7 @@ class APITest extends PHPUnit_Framework_TestCase
         $result = $this->api->removeFile('/' . basename(self::$data_filepath) . '.renamed');
         $this->assertTrue($result);
 
-        $result = $this->api->removeFile('/a/long/path/' . basename(self::$data_filepath) . '.copied');
+        $result = $this->api->removeFile('/' . self::$random_string . '/' . basename(self::$data_filepath) . '.copied');
         $this->assertTrue($result);
     }
 
@@ -178,7 +182,7 @@ class APITest extends PHPUnit_Framework_TestCase
      */
     public function testRemoveDir()
     {
-        $result = $this->api->removeDir('/a');
+        $result = $this->api->removeDir('/' . self::$random_string);
         $this->assertTrue($result);
     }
 }
