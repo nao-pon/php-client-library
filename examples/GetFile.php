@@ -11,7 +11,7 @@ $cloudPath = $_SERVER['argv'][5];
 $localPath = $_SERVER['argv'][6];
 
 // Create a cloud api connection to copy
-$ca = new \Barracuda\Copy\API($consumerKey, $consumerSecret, $accessToken, $tokenSecret, false);
+$ca = new \Barracuda\Copy\API($consumerKey, $consumerSecret, $accessToken, $tokenSecret);
 
 // Ensure the file exists
 $files = $ca->listPath($cloudPath, array("include_parts" => true));

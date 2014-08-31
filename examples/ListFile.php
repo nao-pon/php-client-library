@@ -10,7 +10,7 @@ $tokenSecret = $_SERVER['argv'][4];
 $cloudPath = $_SERVER['argv'][5];
 
 // Create a cloud api connection to copy
-$ca = new \Barracuda\Copy\API($consumerKey, $consumerSecret, $accessToken, $tokenSecret, true);
+$ca = new \Barracuda\Copy\API($consumerKey, $consumerSecret, $accessToken, $tokenSecret);
 
 print("Listing $cloudPath\n");
 
