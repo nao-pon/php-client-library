@@ -1,7 +1,12 @@
 Copy PHP API
 ==================
 
-[![Latest Stable Version](https://poser.pugx.org/barracuda/copy/version.png)](https://packagist.org/packages/barracuda/copy) [![Composer Downloads](https://poser.pugx.org/barracuda/copy/d/total.png)](https://packagist.org/packages/barracuda/copy) [![Build Status](https://secure.travis-ci.org/copy-app/php-client-library.png?branch=master)](http://travis-ci.org/copy-app/php-client-library)
+[![Build Status](https://scrutinizer-ci.com/g/copy-app/php-client-library/badges/build.png?b=master)](https://scrutinizer-ci.com/g/copy-app/php-client-library/build-status/master)
+[![Latest Stable Version](https://poser.pugx.org/barracuda/copy/v/stable.svg)](https://packagist.org/packages/barracuda/copy)
+[![Total Downloads](https://poser.pugx.org/barracuda/copy/downloads.svg)](https://packagist.org/packages/barracuda/copy)
+[![License](https://poser.pugx.org/barracuda/copy/license.svg)](https://packagist.org/packages/barracuda/copy)
+[![Code Coverage](https://scrutinizer-ci.com/g/copy-app/php-client-library/badges/coverage.png?b=master)](https://scrutinizer-ci.com/g/copy-app/php-client-library/?branch=master)
+[![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/copy-app/php-client-library/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/copy-app/php-client-library/?branch=master)
 
 A php library for communicating with the copy cloud api
 
