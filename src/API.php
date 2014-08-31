@@ -35,13 +35,9 @@ class API
      * @param string $consumerSecret OAuth consumer secret
      * @param string $accessToken    OAuth access token
      * @param string $tokenSecret    OAuth token secret
-     * @param bool   $debug          true to output debugging information to stdout
      */
-    public function __construct($consumerKey, $consumerSecret, $accessToken, $tokenSecret, $debug = false)
+    public function __construct($consumerKey, $consumerSecret, $accessToken, $tokenSecret)
     {
-        // debug flag
-        $this->debug = $debug;
-
         // oauth setup
         $this->signature = array(
             'consumer_key' => $consumerKey,
@@ -197,24 +193,10 @@ class API
      */
     private function removeItem($path, $type)
     {
-        if ($this->debug) {
-            print("Removing file at path " . $path . "\n");
-        }
-
         $request = array();
-        $request["action"] = "remove";
         $request["object_type"] = $type;
-        $request["path"] = $path;
 
-        $result = $this->post("update_objects", $this->encodeRequest("update_objects", array("meta" => array($request))));
-
-        // Decode the json reply
-        $result = json_decode($result);
-
-        // Check for errors
-        if (isset($result->error)) {
-            throw new \Exception("Error removing file '" . $result->{"error"}->{"message"} . "'");
-        }
+        $this->updateObject('remove', $path, $request);
 
         return true;
     }
@@ -246,27 +228,7 @@ class API
      */
     public function rename($source_path, $destination_path)
     {
-        if ($this->debug) {
-            print("Renaming object at path " . $source_path . " to " . $destination_path . "\n");
-        }
-
-        $request = array();
-        $request["action"] = "rename";
-        $request["path"] = $source_path;
-        $request["new_path"] = $destination_path;
-
-        $result = $this->post("update_objects", $this->encodeRequest("update_objects", array("meta" => array($request))));
-
-        // Decode the json reply
-        $result = json_decode($result);
-
-        // Check for errors
-        if (isset($result->error)) {
-            throw new \Exception("Error renaming file '" . $result->{"error"}->{"message"} . "'");
-        }
-
-        // Return the object
-        return $result->{"result"}[0]->{"object"};
+        return $this->updateObject('rename', $source_path, array('new_path' => $destination_path));
     }
 
     /**
@@ -296,27 +258,7 @@ class API
      */
     public function copy($source_path, $destination_path)
     {
-        if ($this->debug) {
-            print("Copy object at path " . $source_path . " to " . $destination_path . "\n");
-        }
-
-        $request = array();
-        $request["action"] = "copy";
-        $request["path"] = $source_path;
-        $request["new_path"] = $destination_path;
-
-        $result = $this->post("update_objects", $this->encodeRequest("update_objects", array("meta" => array($request))));
-
-        // Decode the json reply
-        $result = json_decode($result);
-
-        // Check for errors
-        if (isset($result->error)) {
-            throw new \Exception("Error copying object '" . $result->{"error"}->{"message"} . "'");
-        }
-
-        // Return the object
-        return $result->{"result"}[0]->{"object"};
+        return $this->updateObject('copy', $source_path, array('new_path' => $destination_path));
     }
 
     /**
@@ -359,15 +301,7 @@ class API
                 $request = array_merge($request, $additionalOptions);
             }
 
-            $result = $this->post("list_objects", $this->encodeRequest("list_objects", $request));
-
-            // Decode the json reply
-            $result = json_decode($result);
-
-            // Check for errors
-            if (isset($result->error)) {
-                throw new \Exception("Error listing path " . $path . ": '" . $result->{"error"}->{"message"} . "'");
-            }
+            $result = $this->post("list_objects", $this->encodeRequest("list_objects", $request), true);
 
             // add the children if we got some, otherwise add the root object itself to the return
             if (isset($result->result->children) && empty($result->result->children) === false) {
@@ -406,28 +340,12 @@ class API
      */
     public function createDir($path, $recursive = true)
     {
-        if ($this->debug) {
-            print("Creating dir with path: " . $path . "\n");
-        }
+        $request = array(
+            'object_type' => 'dir',
+            'recurse' => $recursive,
+            );
 
-        $request = array();
-        $request["action"] = "create";
-        $request["object_type"] = "dir";
-        $request["path"] = $path;
-        $request["recurse"] = $recursive;
-
-        $result = $this->post("update_objects", $this->encodeRequest("update_objects", array("meta" => array($request))));
-
-        // Decode the json reply
-        $result = json_decode($result);
-
-        // Check for errors
-        if (isset($result->error)) {
-            throw new \Exception("Error creating dir '" . $result->{"error"}->{"message"} . "'");
-        }
-
-        // Return the object
-        return $result->{"result"}[0]->{"object"};
+        return $this->updateObject('create', $path, $request);
     }
 
     /**
@@ -457,21 +375,17 @@ class API
      */
     public function createFile($path, $parts)
     {
-        if ($this->debug) {
-            print("Creating file at path " . $path . "\n");
-        }
-
         $request = array();
-        $request["action"] = "create";
         $request["object_type"] = "file";
         $request["parts"] = array();
-        $request["path"] = $path;
 
         $offset = 0;
         foreach ($parts as $part) {
-            $partRequest["fingerprint"] = $part["fingerprint"];
-            $partRequest["offset"] = $offset;
-            $partRequest["size"] = $part["size"];
+            $partRequest = array(
+                'fingerprint' => $part["fingerprint"],
+                'offset' => $offset,
+                'size' => $part["size"],
+                );
 
             array_push($request["parts"], $partRequest);
 
@@ -480,21 +394,7 @@ class API
 
         $request["size"] = $offset;
 
-        $result = $this->post("update_objects", $this->encodeRequest("update_objects", array("meta" => array($request))));
-
-        // Decode the json reply
-        $result = json_decode($result);
-
-        // Check for errors
-        if (isset($result->error)) {
-            throw new \Exception("Error creating file '" . $result->{"error"}->{"message"} . "'");
-        }
-
-        if (isset($result->result[0]->object) === false) {
-            throw new \Exception("Error creating file due to an unknown issue");
-        }
-
-        return $result->result[0]->object;
+        return $this->updateObject('create', $path, $request);
     }
 
     /**
@@ -548,10 +448,6 @@ class API
             throw new \Exception("Failed to validate part hash");
         }
 
-        if ($this->debug) {
-            print("Sending part $fingerprint \n");
-        }
-
         $request = array(
             'parts' => array(
                 array(
@@ -563,15 +459,7 @@ class API
             )
         );
 
-        $result = $this->post("send_object_parts_v2", $this->encodeRequest("send_object_parts_v2", $request) . chr(0) . $data);
-
-        // Decode the json reply
-        $result = json_decode($result);
-
-        // Check for errors
-        if (isset($result->error->message)) {
-            throw new \Exception("Error sending part: " . $result->error->message);
-        }
+        $result = $this->post("send_object_parts_v2", $this->encodeRequest("send_object_parts_v2", $request) . chr(0) . $data, true);
 
         if ($result->result->has_failed_parts) {
             throw new \Exception("Error sending part: " . $result->result->failed_parts[0]->message);
@@ -588,10 +476,6 @@ class API
      */
     public function hasPart($fingerprint, $size, $shareId = 0)
     {
-        if ($this->debug) {
-            print("Checking if cloud has part $fingerprint \n");
-        }
-
         $request = array(
             'parts' => array(
                 array(
@@ -602,15 +486,7 @@ class API
             )
         );
 
-        $result = $this->post("has_object_parts_v2", $this->encodeRequest("has_object_parts_v2", $request));
-
-        // Decode the json reply
-        $result = json_decode($result);
-
-        // Check for errors
-        if (isset($result->error)) {
-            throw new \Exception("Error checking for part");
-        }
+        $result = $this->post("has_object_parts_v2", $this->encodeRequest("has_object_parts_v2", $request), true);
 
         if (empty($result->result->needed_parts)) {
             return true;
@@ -635,10 +511,6 @@ class API
      */
     public function getPart($fingerprint, $size, $shareId = 0)
     {
-        if ($this->debug) {
-            print("Getting part $fingerprint \n");
-        }
-
         $request = array(
             'parts' => array(
                 array(
@@ -651,16 +523,14 @@ class API
 
         $result = $this->post("get_object_parts_v2", $this->encodeRequest("get_object_parts_v2", $request));
 
-        // Split up the json and binary payload
-
         // Find the null byte
-        if (($null_offset = strpos($result, chr(0))) != false) {
-            // Grab the binary payload
-            $binary = substr($result, $null_offset + 1, strlen($result) - $null_offset);
+        $null_offset = strpos($result, chr(0));
 
-            if ($binary === false) {
-                throw new \Exception("Error getting part data");
-            }
+        // Grab the binary payload
+        $binary = substr($result, $null_offset + 1, strlen($result) - $null_offset);
+
+        if ($binary === false) {
+            throw new \Exception("Error getting part data");
         }
 
         // Grab the json payload
@@ -691,14 +561,53 @@ class API
     }
 
     /**
+     * Update meta object
+     *
+     * Object structure:
+     * {
+     *  object_id: "4008"
+     *  path: "/example"
+     *  type: "dir" || "file"
+     *  share_id: "0"
+     *  share_owner: "21956799"
+     *  company_id: NULL
+     *  size: filesize in bytes, 0 for folders
+     *  created_time: unix timestamp, e.g. "1389731126"
+     *  modified_time: unix timestamp, e.g. "1389731126"
+     *  date_last_synced: unix timestamp, e.g. "1389731126"
+     *  removed_time: unix timestamp, e.g. "1389731126" or empty string for non-deleted files/folders
+     *  mime_type: string
+     *  revisions: array of revision objects
+     * }
+     *
+     * @param string $action
+     * @param string $path
+     * @param array $meta contains action, path, and other attributes of the object to update
+     *
+     * @return stdClass using structure as noted above
+     */
+    private function updateObject($action, $path, $meta)
+    {
+        // Add action and path to meta
+        $meta["action"] = $action;
+        $meta["path"] = $path;
+
+        $result = $this->post("update_objects", $this->encodeRequest("update_objects", array("meta" => array($meta))), true);
+
+        // Return the object
+        return $result->{"result"}[0]->{"object"};
+    }
+
+    /**
      * Create and execute cURL request to send data.
      *
-     * @param  string $method API method
-     * @param  string $data   raw request
+     * @param  string  $method         API method
+     * @param  string  $data           raw request
+     * @param  boolean $decodeResponse true to decode response
      *
      * @return mixed  result from curl_exec
      */
-    protected function post($method, $data)
+    private function post($method, $data, $decodeResponse = false)
     {
         curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, "POST");
         curl_setopt($this->curl, CURLOPT_POSTFIELDS, $data);
@@ -710,11 +619,16 @@ class API
         $result = curl_exec($this->curl);
 
         // If curl grossly failed, throw
-        if ($result == FALSE) {
+        if ($result === false) {
             throw new \Exception("Curl failed to exec " . curl_error($this->curl));
         }
 
-        return $result;
+        // Decode the response if requested to do so
+        if ($decodeResponse) {
+            return $this->decodeResponse($result);
+        } else {
+            return $result;
+        }
     }
 
     /**
@@ -778,15 +692,33 @@ class API
      */
     private function encodeRequest($method, $json)
     {
-        $request["jsonrpc"] = "2.0";
-        $request["id"] = "0";
-        $request["method"] = $method;
-        $request["params"] = $json;
-        $request = str_replace('\\/', '/', json_encode($request));
-        if ($this->debug) {
-            print("Encoded request " . var_export($request) . "\n");
+        $request = array(
+            'jsonrpc' => '2.0',
+            'id' => '0',
+            'method' => $method,
+            'params' => $json,
+            );
+
+        return str_replace('\\/', '/', json_encode($request));
+    }
+
+    /**
+     * Decode a JSON response.
+     *
+     * @param string $response JSON response
+     *
+     * @return array JSON decoded string
+     */
+    private function decodeResponse($response)
+    {
+        // Decode the json reply
+        $result = json_decode($response);
+
+        // Check for errors
+        if (isset($result->error)) {
+            throw new \Exception("Error: '" . $result->error->message . "'");
         }
 
-        return $request;
+        return $result;
     }
 }
