@@ -94,8 +94,22 @@ class API
     {
         // send data 1MB at a time
         $parts = array();
-        while ($buffer = fread($stream, 1048576)) {
+        $limit = 1048576;
+        $buffer = '';
+        while ($buffer .= fread($stream, $limit)) {
+            // check $buffer size for remote stream
+            // ref. http://php.net/manual/function.fread.php
+            // see Example #3 Remote fread() examples
+            if (!feof($stream) && strlen($buffer) < $limit) {
+                continue;
+            }
+            $next = '';
+            if (strlen($buffer) > $limit) {
+                $next = substr($buffer, $limit);
+                $buffer = substr($buffer, 0, $limit);
+            }
             $parts[] = $this->sendData($buffer);
+            $buffer = $next;
         }
 
         // close the stream
