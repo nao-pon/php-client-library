@@ -1,9 +1,9 @@
 {
-    "name": "barracuda/copy",
+    "name": "nao-pon/copy",
     "type": "library",
     "description": "Copy PHP library",
     "keywords": ["copy"],
-    "homepage": "https://github.com/copy-app/php-client-library",
+    "homepage": "https://github.com/nao-pon/php-client-library",
     "license": "MIT",
     "require": {
         "eher/oauth": "1.0.*",
