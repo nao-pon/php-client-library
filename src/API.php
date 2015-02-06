@@ -316,6 +316,52 @@ class API
     }
 
     /**
+     * Get directory or file meta data
+     *
+     * Object structure:
+     * {
+     *  id: "/copy/example"
+     *  path: "/example"
+     *  name: "example",
+     *  type: "dir" || "file"
+     *  share_id: "0"
+     *  share_owner: "21956799"
+     *  company_id: NULL
+     *  size: filesize in bytes, 0 for folders
+     *  created_time: unix timestamp, e.g. "1389731126"
+     *  modified_time: unix timestamp, e.g. "1389731126"
+     *  date_last_synced: unix timestamp, e.g. "1389731126"
+     *  removed_time: unix timestamp, e.g. "1389731126" or empty string for non-deleted files/folders
+     *  mime_type: string
+     *  revisions: array of revision objects
+     *  children: array of children objects
+     * }
+     *
+     * @param  string $path  full path with leading slash and optionally a filename
+     * @param  string $root  Optional, "copy" is the first level of the real filesystem
+     *
+     * @return array List of file/folder objects described above.
+     */
+    public function getMeta($path, $root = "copy")
+    {
+        $result = $this->get("meta/" . $root . $path);
+
+        // Decode the json reply
+        $result = json_decode($result);
+
+        // Check for errors
+        if (isset($result->error)) {
+            if ($result->error == 1301) {
+            	// item not found
+            	return array();
+            }
+            throw new \Exception("Error listing path " . $path . ": (" . $result->error . ") '" . $result->message . "'");
+        }
+
+        return $result;
+    }
+
+    /**
      * Create a dir
      *
      * Object structure:
@@ -632,6 +678,33 @@ class API
     }
 
     /**
+     * Create and execute cURL request by GET method.
+     *
+     * @param  string $method API method
+     *
+     * @return mixed  result from curl_exec
+     */
+    protected function get($method)
+    {
+    	$method = str_replace("%2F", "/", rawurlencode($method));
+        curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, "GET");
+        curl_setopt($this->curl, CURLOPT_POSTFIELDS, null);
+        curl_setopt($this->curl, CURLOPT_HTTPHEADER, $this->getHeaders($method, "GET"));
+        curl_setopt($this->curl, CURLOPT_URL, $this->api_url . "/" . $this->GetEndpoint($method));
+        curl_setopt($this->curl, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($this->curl, CURLOPT_HTTPGET, 1);
+
+        $result = curl_exec($this->curl);
+
+        // If curl grossly failed, throw
+        if ($result == FALSE) {
+            throw new \Exception("Curl failed to exec " . curl_error($this->curl));
+        }
+
+        return $result;
+    }
+
+    /**
      * Return which cloud API end point to use for a given method.
      *
      * @param  string $method API method
@@ -642,19 +715,22 @@ class API
     {
         if ($method == "has_object_parts_v2" || $method == "send_object_parts_v2" || $method == "get_object_parts_v2") {
 	        return "jsonrpc_binary";
-        } else {
+        } else if ($method == "update_objects" || $method == "list_objects") {
             return "jsonrpc";
+        } else {
+        	return "rest/" . $method;
         }
     }
 
     /**
      * Generate the HTTP headers need for a given Cloud API method.
      *
-     * @param  string $method API method
+     * @param  string $method      API method
+     * @param  string $http_method Optional, HTTP request method
      *
      * @return array  contains headers to use for HTTP requests
      */
-    private function getHeaders($method)
+    private function getHeaders($method, $http_method = "POST")
     {
         $headers = array();
 
@@ -664,7 +740,7 @@ class API
         $request = \Eher\OAuth\Request::from_consumer_and_token(
             $consumer,
             $token,
-            'POST',
+            $http_method,
             $this->api_url . "/" . $this->GetEndpoint($method),
             array()
         );
