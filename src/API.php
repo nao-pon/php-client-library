@@ -730,7 +730,7 @@ class API
      *
      * @return array  contains headers to use for HTTP requests
      */
-    private function getHeaders($method, $http_method = "POST")
+    public           getHeaders($method, $http_method = "POST")
     {
         $headers = array();
 
