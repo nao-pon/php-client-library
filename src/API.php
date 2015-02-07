@@ -744,7 +744,7 @@ class API
      *
      * @return array  contains headers to use for HTTP requests
      */
-    public           getHeaders($method, $http_method = "POST")
+    public function getHeaders($method, $http_method = "POST")
     {
         $headers = array();
 
