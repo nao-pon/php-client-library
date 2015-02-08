@@ -46,6 +46,15 @@ class API
             'oauth_secret' => $tokenSecret
         );
 
+        $this->__wakeup();
+    }
+
+    /**
+     * Wakeup function on unserialize
+     * 
+     */
+    public function __wakeup()
+    {
         // curl setup
         $this->curl = curl_init();
         if (!$this->curl) {
