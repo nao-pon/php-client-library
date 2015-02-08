@@ -630,6 +630,54 @@ class API
     }
 
     /**
+     * Create a New Link
+     * 
+     * Object structure:
+     * {
+     *   id: "MBrss3roGDk4",
+     *   name: "My Cool Shared Files",
+     *   public: true,
+     *   url: "https://copy.com/MBrss3roGDk4",
+     *   url_short: "https://copy.com/MBrss3roGDk4",
+     *   creator_id: "1381231",
+     *   company_id: null,
+     *   confirmation_required: false,
+     *   status: "viewed",
+     *   permissions: "read"
+     * }
+     * 
+     * @param array|string  $paths   target item(s) path
+     * @param array         $options option attributes, (bool) "public", (string) "name"
+     * @param string        $root
+     * 
+     * @throws \Exception
+     * 
+     * @return object described above.
+     */
+    public function createLink($paths, $options = array(), $root = 'copy')
+    {
+        if (is_string($paths)) {
+            $paths = array($paths);
+        }
+        $paths = array_map(function($p) use ($root){return '/' . $root . $p;}, $paths);
+        
+        $data = array("paths" => $paths);
+        $data = array_merge($data, $options);
+        
+        $result = $this->post("links", $data);
+        
+        // Decode the json reply
+        $result = json_decode($result);
+        
+        // Check for errors
+        if (isset($result->error)) {
+        	throw new \Exception("Error listing path " . $path . ": (" . $result->error . ") '" . $result->message . "'");
+        }
+        
+        return $result;
+    }
+
+    /**
      * Update meta object
      *
      * Object structure:
@@ -678,6 +726,10 @@ class API
      */
     private function post($method, $data, $decodeResponse = false)
     {
+        if (is_array($data)) {
+            $data = str_replace('\\/', '/', json_encode($data));
+        }
+
         curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, "POST");
         curl_setopt($this->curl, CURLOPT_POSTFIELDS, $data);
         curl_setopt($this->curl, CURLOPT_HTTPHEADER, $this->getHeaders($method));
