@@ -60,7 +60,7 @@ class API
         // check for phar execution
         // in case we have to move the .crt file to a temp folder so curl is able to load it
         if (substr(__FILE__, 0, 7) == 'phar://') {
-            $cacrt = $this->extractPharCacert($cacrt);
+            $cacrt = self::extractPharCacert($cacrt);
         }
         curl_setopt($this->curl, CURLOPT_CAINFO, $cacrt);
     }
