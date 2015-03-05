@@ -62,10 +62,16 @@ class API
         }
 
         // ca bundle
-        if (!is_file(__DIR__ . '/ca.crt')) {
+        $cacrt = __DIR__ . '/ca.crt';
+        if (!is_file($cacrt)) {
             throw new \Exception("Failed to load ca certificate");
         }
-        curl_setopt($this->curl, CURLOPT_CAINFO, __DIR__ . '/ca.crt');
+        // check for phar execution
+        // in case we have to move the .crt file to a temp folder so curl is able to load it
+        if (substr(__FILE__, 0, 7) == 'phar://') {
+            $cacrt = self::extractPharCacert($cacrt);
+        }
+        curl_setopt($this->curl, CURLOPT_CAINFO, $cacrt);
     }
 
     /**
@@ -871,5 +877,33 @@ class API
         }
 
         return $result;
+    }
+
+    /**
+     * Copies the phar cacert from a phar into the temp directory.
+     *
+     * @param  string $pharCacertPath Path to the phar cacert.
+     *
+     * @return string Returns the path to the extracted cacert file.
+     */
+    public static function extractPharCacert($pharCacertPath)
+    {
+        $certFile = sys_get_temp_dir() . '/barracuda-copycom-cacert.crt';
+
+        if (!file_exists($pharCacertPath)) {
+            throw new \Exception("Could not find " . $pharCacertPath);
+        }
+
+        // Copy the cacert file from the phar if it is not in the temp folder.
+        if (!file_exists($certFile) || filesize($certFile) != filesize($pharCacertPath)) {
+            if (!copy($pharCacertPath, $certFile)) {
+                throw new \Exception(
+                    "Could not copy " . $pharCacertPath . " to " . $certFile . ": "
+                    . var_export(error_get_last(), true)
+                );
+            }
+        }
+
+        return $certFile;
     }
 }
