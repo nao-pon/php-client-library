@@ -178,7 +178,7 @@ class API
 
         // obtain each part and add it to the stream
         foreach ($file->{"revisions"}[0]->{"parts"} as $part) {
-            $data = $this->getPart($part->{"fingerprint"}, $part->{"size"});
+            $data = $this->getPart($part->{"fingerprint"}, $part->{"size"}, $file->{"share_id"});
             fwrite($stream, $data);
         }
 
