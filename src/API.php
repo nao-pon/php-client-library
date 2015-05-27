@@ -677,7 +677,7 @@ class API
         
         // Check for errors
         if (isset($result->error)) {
-        	throw new \Exception("Error listing path " . $path . ": (" . $result->error . ") '" . $result->message . "'");
+               throw new \Exception("Error creating link for paths " . implode(', ', $paths) . ": (" . $result->error . ") '" . $result->message . "'");
         }
         
         return $result;
