@@ -53,7 +53,7 @@ class API
      * Wakeup function on unserialize
      * 
      */
-    public function __wakeup()
+    private function __wakeup()
     {
         // curl setup
         $this->curl = curl_init();
@@ -677,7 +677,7 @@ class API
         
         // Check for errors
         if (isset($result->error)) {
-        	throw new \Exception("Error listing path " . $path . ": (" . $result->error . ") '" . $result->message . "'");
+               throw new \Exception("Error creating link for paths " . implode(', ', $paths) . ": (" . $result->error . ") '" . $result->message . "'");
         }
         
         return $result;
