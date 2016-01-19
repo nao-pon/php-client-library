@@ -53,7 +53,7 @@ class API
      * Wakeup function on unserialize
      * 
      */
-    private function __wakeup()
+    public function __wakeup()
     {
         // curl setup
         $this->curl = curl_init();
